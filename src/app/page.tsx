@@ -60,21 +60,19 @@ export default function Home() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const isNearBottom = useCallback(() => {
-    if (scrollAreaRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      return scrollHeight - scrollTop - clientHeight < 100;
+  const scrollToBottom = useCallback((force: boolean = false, smooth: boolean = true) => {
+    if (force) {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: smooth ? 'smooth' : 'auto', 
+        block: 'end' 
+      });
+      setShowScrollButton(false);
     }
-    return false;
   }, []);
 
-  const smartScroll = useCallback(() => {
-    if (!userHasScrolled && isNearBottom()) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      setShowScrollButton(true);
-    }
-  }, [userHasScrolled, isNearBottom]);
+  const handleScrollButtonClick = useCallback(() => {
+    scrollToBottom(true, true);
+  }, [scrollToBottom]);
 
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
@@ -83,25 +81,6 @@ export default function Home() {
       setShowScrollButton(!isAtBottom);
     }
   }, []);
-
-  const scrollToBottom = useCallback((force: boolean = false, smooth: boolean = true) => {
-    if (force || (!userHasScrolled && isNearBottom())) {
-      messagesEndRef.current?.scrollIntoView({ 
-        behavior: smooth ? 'smooth' : 'auto', 
-        block: 'end' 
-      });
-      setShowScrollButton(false);
-    }
-  }, [userHasScrolled, isNearBottom]);
-
-  const handleScrollButtonClick = useCallback(() => {
-    scrollToBottom(true, true);
-    setUserHasScrolled(false);
-  }, [scrollToBottom]);
-
-  useEffect(() => {
-    smartScroll();
-  }, [messages, smartScroll]);
 
   useEffect(() => {
     const scrollArea = scrollAreaRef.current;
@@ -216,7 +195,8 @@ export default function Home() {
 
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     setActiveChat(chatId);
-    setIsLoading(true); // Add loading state while fetching messages
+    setIsLoading(true);
+    setMessages([]); // Clear messages immediately to reduce flashing
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -228,11 +208,12 @@ export default function Home() {
       setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
-      setMessages([]); // Set to empty array if there's an error
     } finally {
       setIsLoading(false);
+      // Scroll to bottom after loading messages
+      setTimeout(() => scrollToBottom(true, false), 100);
     }
-  }, [supabase]);
+  }, [supabase, scrollToBottom]);
 
   const fetchApiKey = async () => {
     if (!user) return;
@@ -350,7 +331,7 @@ export default function Home() {
     // Immediately add the user's message to the chat
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    scrollToBottom(true, false);  // Scroll immediately without smooth animation
+    scrollToBottom(true, false);  // Scroll immediately after adding user's message
 
     setIsLoading(true);
 
@@ -384,8 +365,6 @@ export default function Home() {
       setIsLoading(false);
       scrollToBottom(true, true);  // Scroll smoothly after response is received
     }
-
-    setUserHasScrolled(false);
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
   const handleNewChat = async () => {
@@ -517,9 +496,7 @@ export default function Home() {
             <ScrollArea 
               className="flex-grow overflow-y-auto pt-16 pb-20" 
               ref={scrollAreaRef}
-              onWheel={() => setUserHasScrolled(true)}
-              onTouchMove={() => setUserHasScrolled(true)}
-              onScroll={handleScroll}  // Add this line
+              onScroll={handleScroll}
             >
               <div className="flex flex-col px-4">
                 {messages
@@ -576,7 +553,7 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-                {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
+                {isLoading && (
                   <div className="mb-4 p-3 rounded-lg bg-secondary text-secondary-foreground max-w-[80%] mr-auto">
                     <LoadingDots />
                   </div>
