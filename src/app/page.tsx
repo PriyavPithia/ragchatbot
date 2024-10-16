@@ -495,16 +495,16 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between px-4 h-16 border-b">
-        <h1 className="text-2xl font-bold">AI Chatbot</h1>  // Increased from text-xl to text-2xl
+        <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && (
             <Button
               variant="outline"
-              size="default"  // Changed from 'sm' to 'default'
-              className="mr-2 text-base"  // Added text-base
+              size="default"
+              className="mr-2 text-base"
               onClick={handleNewChat}
             >
-              <Plus size={18} className="mr-2" />  // Increased from size={16} to size={18}
+              <Plus size={18} className="mr-2" />
               New Chat
             </Button>
           )}
