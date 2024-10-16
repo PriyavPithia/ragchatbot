@@ -55,13 +55,43 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const fetchChats = useCallback(async () => {
+    if (user) {
+      try {
+        console.log('Fetching chats for user:', user.id)
+        const { data, error } = await supabase
+          .from('chats')
+          .select('id, name')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log('Fetched chats:', data)
+        setChats(data || []);
+        if (data && data.length > 0) {
+          setActiveChat(data[0].id);
+        } else {
+          setActiveChat(null);
+        }
+      } catch (error) {
+        console.error('Error fetching chats:', error);
+      }
+    }
+  }, [user, supabase]);
+
   useEffect(() => {
     console.log('Home page effect', { authLoading, user })
-    if (!authLoading && !user) {
-      console.log('Redirecting to auth page')
-      router.push('/auth')
+    if (!authLoading) {
+      if (user) {
+        console.log('User is authenticated, fetching chats')
+        fetchChats()
+      } else {
+        console.log('No user, redirecting to auth page')
+        router.push('/auth')
+      }
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, fetchChats])
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -78,42 +108,14 @@ export default function Home() {
       setApiKey(storedApiKey);
     }
 
-    if (user) {
-      console.log('Fetching chats for user:', user.id)
-      fetchChats();
-    }
-
     return () => window.removeEventListener('resize', checkMobile)
-  }, [user, setApiKey]);
+  }, [setApiKey]);
 
   useEffect(() => {
     if (activeChat) {
       fetchMessages(activeChat);
     }
   }, [activeChat]);
-
-  const fetchChats = async () => {
-    if (user) {
-      try {
-        const { data, error } = await supabase
-          .from('chats')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        setChats(data || []);
-        if (data && data.length > 0) {
-          setActiveChat(data[0].id);
-        } else {
-          setActiveChat(null);
-        }
-      } catch (error) {
-        console.error('Error fetching chats:', error);
-      }
-    }
-  };
 
   const fetchMessages = async (chatId: string) => {
     try {
@@ -490,12 +492,7 @@ export default function Home() {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
-  if (!user) {
-    console.log('No user, returning null')
-    return null
-  }
-
-  console.log('Rendering main component')
+  console.log('Rendering main component', { user, chats })
   return (
     <div className="flex h-screen bg-background">
       {!isMobile && (
