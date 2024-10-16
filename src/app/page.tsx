@@ -208,7 +208,7 @@ export default function Home() {
       }
     }
 
-    // Always initialize a new chat session
+    
     console.log('Initializing Gemini chat...');
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
@@ -258,7 +258,7 @@ export default function Home() {
       console.log('Response generated successfully');
       const newBotMessage: Message = { role: 'bot', content: response, chat_id: currentChatId };
       
-      // Update messages for the specific chat
+     
       setMessages(prev => {
         const updatedMessages = prev.filter(msg => msg.chat_id !== currentChatId);
         return [...updatedMessages, newUserMessage, newBotMessage].sort((a, b) => 
@@ -266,7 +266,7 @@ export default function Home() {
         );
       });
       
-      // Save both messages to the database
+    
       console.log('Saving messages to database...');
       const { data, error } = await supabase
         .from('messages')
@@ -319,7 +319,7 @@ export default function Home() {
       setChats(prevChats => [data, ...prevChats]);
       setActiveChat(data.id);
       setActiveTab('chat');
-      setMessages([]); // Clear all messages when creating a new chat
+      setMessages([]); 
       setGeminiChat(null);
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -391,7 +391,7 @@ export default function Home() {
         return newMessages;
       });
 
-      // Update the message in the database
+
       if (messages[index].id) {
         await supabase.from('messages').update({
           content: response
@@ -425,7 +425,7 @@ export default function Home() {
                       : 'chatbot-message mr-auto'
                   } max-w-[80%]`}
                 >
-                  <div className={`markdown-content text-base p-4 pb-2 ${  // Increased from text-xs to text-base
+                  <div className={`markdown-content text-base p-4 pb-2 ${  
                     message.role === 'user' ? 'text-primary-foreground pt-2' : ''
                   }`}>
                     <ReactMarkdown
@@ -443,21 +443,21 @@ export default function Home() {
                     <div className="flex justify-end space-x-2 p-2">
                       <Button
                         variant="ghost"
-                        size="sm"  // Changed from 'icon' to 'sm'
+                        size="sm"
                         onClick={() => copyToClipboard(message.content, index)}
-                        className="h-8 w-8"  // Increased from h-6 w-6 to h-8 w-8
+                        className="h-8 w-8"  
                       >
                         {copiedIndex === index ? (
-                          <Check className="h-4 w-4" />  // Increased from h-3 w-3 to h-4 w-4
+                          <Check className="h-4 w-4" />  
                         ) : (
-                          <Copy className="h-4 w-4" />  // Increased from h-3 w-3 to h-4 w-4
+                          <Copy className="h-4 w-4" /> 
                         )}
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"  // Changed from 'icon' to 'sm'
+                        size="sm"  
                         onClick={() => regenerateResponse(index)}
-                        className="h-8 w-8"  // Increased from h-6 w-6 to h-8 w-8
+                        className="h-8 w-8"  
                         disabled={regeneratingIndexes.has(index)}
                       >
                         <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  // Increased from h-3 w-3 to h-4 w-4
@@ -488,7 +488,7 @@ export default function Home() {
   }
 
   if (!user) {
-    return null // This will prevent any content from rendering before redirect
+    return null 
   }
 
   return (
