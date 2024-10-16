@@ -38,7 +38,7 @@ export function AuthForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://agenticchatbot.netlify.app'
+          redirectTo: 'https://agenticchatbot.netlify.app/auth/callback'
         }
       });
       if (error) throw error;
