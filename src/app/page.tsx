@@ -57,10 +57,16 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Add this function to scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  // Modify the scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      const { scrollHeight, clientHeight, scrollTop } = messagesEndRef.current;
+      const isScrolledToBottom = scrollHeight - clientHeight <= scrollTop + 100; // 100px threshold
+      if (isScrolledToBottom) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, []);
 
   // Modify the useEffect for keyboard visibility
   useEffect(() => {
@@ -340,7 +346,7 @@ export default function Home() {
       setIsLoading(false);
       scrollToBottom();
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, supabase]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
@@ -467,7 +473,7 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full" ref={messagesEndRef}>
             <ScrollArea className="flex-grow overflow-y-auto px-4 pb-20 md:pb-16"> {/* Increased bottom padding for mobile */}
               {messages
                 .filter(message => message.chat_id === activeChat)
@@ -601,8 +607,8 @@ export default function Home() {
             </ScrollArea>
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'sticky' : 'fixed'} bottom-0 left-0 right-0 bg-background z-10 ${!isMobile ? 'w-[calc(100%-16rem)]' : 'w-full'}`}>
-              <form onSubmit={handleSendMessage} className="flex space-x-2">
+            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'sticky' : 'fixed'} bottom-0 ${!isMobile ? 'left-64 right-0' : 'left-0 right-0'} bg-background z-10`}>
+              <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl ml-auto">
                 <Input
                   name="message"
                   placeholder="Type your message..."
