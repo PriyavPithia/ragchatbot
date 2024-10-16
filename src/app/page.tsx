@@ -52,6 +52,9 @@ export default function Home() {
   const [geminiChat, setGeminiChat] = useState<ChatSession | null>(null)
   const [message, setMessage] = useState('')
 
+  // Add this new state
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const fetchChats = useCallback(async () => {
@@ -116,9 +119,11 @@ export default function Home() {
       const isMobile = window.innerWidth < 768;
       console.log('Is mobile:', isMobile);
       setIsMobile(isMobile);
-    }
+    };
+    
     checkMobile();
     window.addEventListener('resize', checkMobile);
+    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -132,8 +137,6 @@ export default function Home() {
     if (storedApiKey) {
       setApiKey(storedApiKey);
     }
-
-    return () => window.removeEventListener('resize', checkMobile)
   }, [setApiKey]);
 
   useEffect(() => {
@@ -495,6 +498,19 @@ export default function Home() {
     }
   };
 
+  // Add this new useEffect
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== 'undefined') {
+        const isKeyboard = window.innerHeight < window.outerHeight;
+        setIsKeyboardVisible(isKeyboard);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   if (authLoading) {
     console.log('Auth is loading')
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -555,7 +571,7 @@ export default function Home() {
             {renderTabContent()}
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className="p-2 sm:p-4 border-t fixed bottom-0 left-0 right-0 bg-background z-10"> {/* Changed to fixed positioning */}
+            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'absolute bottom-0' : 'fixed bottom-0'} left-0 right-0 bg-background z-10`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2">
                 <Input
                   name="message"
