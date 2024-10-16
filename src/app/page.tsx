@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from 'react'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '../components/AuthProvider'
 import { Send, Copy, RefreshCw, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +13,7 @@ import { Sidebar } from '../components/Sidebar'
 import { KnowledgeBase } from '../components/KnowledgeBase'
 import { ApiKey } from '../components/ApiKey'
 import ReactMarkdown from 'react-markdown'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { LoadingDots } from '@/components/LoadingDots'
 import { GoogleGenerativeAI, GenerativeModel, ChatSession } from "@google/generative-ai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
@@ -18,9 +21,6 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { useAuth } from '../components/AuthProvider';
-import Auth from './auth/page';
-import { supabase } from '@/lib/supabaseClient';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 
 const MODEL_NAME = "gemini-1.0-pro";
@@ -34,7 +34,23 @@ type Message = {
 };
 
 export default function Home() {
-  const { user, apiKey, setApiKey, isLoading: isAuthLoading } = useAuth()
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
+  }
+
+  if (!user) {
+    return null // or a loading indicator
+  }
+
   const [isMobile, setIsMobile] = useState(false)
   const [activeTab, setActiveTab] = useState('chat')
   const [messages, setMessages] = useState<Message[]>([
@@ -496,12 +512,12 @@ export default function Home() {
   };
 
   // If it's loading or there's no user, show a loading state or the Auth component
-  if (isAuthLoading) {
+  if (isLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>;
   }
 
   if (!user) {
-    return <Auth />;
+    return null; // or a loading indicator
   }
 
   // Render the main chatbot interface when the user is authenticated

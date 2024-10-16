@@ -40,6 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session)
         await loadApiKey(session.user.id)
         router.push('/') // Redirect to home page if session exists
+      } else {
+        router.push('/auth') // Redirect to auth page if no session
       }
       setIsLoading(false)
     }
@@ -54,8 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (event === 'SIGNED_IN') {
           if (session) {
             await loadApiKey(session.user.id)
+            router.push('/') // Redirect to home page on sign in
           }
-          router.push('/') // Redirect to home page on sign in
         } else if (event === 'SIGNED_OUT') {
           setApiKey('')
           localStorage.removeItem('geminiApiKey')
@@ -68,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe()
     }
-  }, [router, supabase])
+  }, [router, supabase.auth])
 
   const loadApiKey = async (userId: string) => {
     try {
