@@ -80,115 +80,117 @@ export function Sidebar({
           )}
           <div>
             <p className="font-semibold">{user?.user_metadata?.full_name || user?.email}</p>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
+            <p className="text-xs text-muted-foreground">{user?.email}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col space-y-2 px-2">
-        <button
-          className={`flex items-center space-x-2 p-2 rounded-md ${
-            activeTab === 'chat' ? 'bg-secondary' : 'hover:bg-secondary/50'
-          }`}
-          onClick={() => setActiveTab('chat')}
-        >
-          <MessageSquare size={18} />
-          <span>AI Chatbot</span>
-        </button>
-        <button
-          className={`flex items-center space-x-2 p-2 rounded-md ${
-            activeTab === 'knowledgebase' ? 'bg-secondary' : 'hover:bg-secondary/50'
-          }`}
-          onClick={() => setActiveTab('knowledgebase')}
-        >
-          <Database size={18} />
-          <span>Knowledge Base</span>
-        </button>
-        <button
-          className={`flex items-center space-x-2 p-2 rounded-md ${
-            activeTab === 'apikey' ? 'bg-secondary' : 'hover:bg-secondary/50'
-          }`}
-          onClick={() => setActiveTab('apikey')}
-        >
-          <Key size={18} />
-          <span>API Key</span>
-        </button>
-      </div>
-
-      {activeTab === 'chat' && (
-        <>
-          <Button
-            variant="outline"
-            className="mt-4 mx-2 py-2 h-10"
-            onClick={handleNewChatClick}
+      <div className="flex-grow">
+        <div className="flex flex-col space-y-2 px-2">
+          <button
+            className={`flex items-center space-x-2 p-2 rounded-md ${
+              activeTab === 'chat' ? 'bg-secondary' : 'hover:bg-secondary/50'
+            }`}
+            onClick={() => setActiveTab('chat')}
           >
-            <Plus size={18} className="mr-2" />
-            New Chat
-          </Button>
+            <MessageSquare size={18} />
+            <span>AI Chatbot</span>
+          </button>
+          <button
+            className={`flex items-center space-x-2 p-2 rounded-md ${
+              activeTab === 'knowledgebase' ? 'bg-secondary' : 'hover:bg-secondary/50'
+            }`}
+            onClick={() => setActiveTab('knowledgebase')}
+          >
+            <Database size={18} />
+            <span>Knowledge Base</span>
+          </button>
+          <button
+            className={`flex items-center space-x-2 p-2 rounded-md ${
+              activeTab === 'apikey' ? 'bg-secondary' : 'hover:bg-secondary/50'
+            }`}
+            onClick={() => setActiveTab('apikey')}
+          >
+            <Key size={18} />
+            <span>API Key</span>
+          </button>
+        </div>
 
-          {message && <p className="text-sm text-red-500 mt-2">{message}</p>}
+        {activeTab === 'chat' && (
+          <>
+            <Button
+              variant="outline"
+              className="mt-4 mx-2 py-2 h-10 w-full"
+              onClick={handleNewChatClick}
+            >
+              <Plus size={18} className="mr-2" />
+              New Chat
+            </Button>
 
-          <ScrollArea className="flex-grow mt-4">
-            {chats.map((chat) => (
-              <div 
-                key={chat.id} 
-                className={`flex items-center justify-between p-2 ${
-                  activeChat === chat.id ? 'bg-secondary' : 'hover:bg-secondary/50'
-                }`}
-              >
-                {editingChatId === chat.id ? (
-                  <Input
-                    ref={inputRef}
-                    value={editingChatName}
-                    onChange={(e) => setEditingChatName(e.target.value)}
-                    onBlur={() => handleRenameChat(chat.id)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleRenameChat(chat.id)}
-                    className="flex-grow mr-2 h-8 text-sm focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-transparent"
-                  />
-                ) : (
-                  <>
-                    <button
-                      className={`flex items-center space-x-2 w-full text-left ${
-                        activeChat === chat.id ? 'font-bold' : ''
-                      }`}
-                      onClick={() => setActiveChat(chat.id)}
-                    >
-                      <MessageSquare size={18} />
-                      <span>{chat.name}</span>
-                    </button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical size={14} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-32">
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setEditingChatId(chat.id);
-                            setEditingChatName(chat.name);
-                          }}
-                          className="text-sm py-1.5 cursor-pointer"
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Rename</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => onDeleteChat(chat.id)}
-                          className="text-sm py-1.5 cursor-pointer"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                )}
-              </div>
-            ))}
-          </ScrollArea>
-        </>
-      )}
+            {message && <p className="text-sm text-red-500 mt-2">{message}</p>}
+
+            <ScrollArea className="flex-grow mt-4">
+              {chats.map((chat) => (
+                <div 
+                  key={chat.id} 
+                  className={`flex items-center justify-between p-2 ${
+                    activeChat === chat.id ? 'bg-secondary' : 'hover:bg-secondary/50'
+                  }`}
+                >
+                  {editingChatId === chat.id ? (
+                    <Input
+                      ref={inputRef}
+                      value={editingChatName}
+                      onChange={(e) => setEditingChatName(e.target.value)}
+                      onBlur={() => handleRenameChat(chat.id)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleRenameChat(chat.id)}
+                      className="flex-grow mr-2 h-8 text-sm focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-transparent"
+                    />
+                  ) : (
+                    <>
+                      <button
+                        className={`flex items-center space-x-2 w-full text-left ${
+                          activeChat === chat.id ? 'font-bold' : ''
+                        }`}
+                        onClick={() => setActiveChat(chat.id)}
+                      >
+                        <MessageSquare size={18} />
+                        <span>{chat.name}</span>
+                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical size={14} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-32">
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setEditingChatId(chat.id);
+                              setEditingChatName(chat.name);
+                            }}
+                            className="text-sm py-1.5 cursor-pointer"
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>Rename</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => onDeleteChat(chat.id)}
+                            className="text-sm py-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
+                </div>
+              ))}
+            </ScrollArea>
+          </>
+        )}
+      </div>
 
       <div className="px-2 py-3 mt-auto">
         <Button

@@ -413,7 +413,7 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <ScrollArea className="h-full p-4">
+          <ScrollArea className="h-[90vh] p-4"> {/* Changed to 90vh for mobile */}
             {messages
               .filter(message => message.chat_id === activeChat)
               .map((message, index) => (
@@ -445,23 +445,22 @@ export default function Home() {
                         variant="ghost"
                         size="sm"
                         onClick={() => copyToClipboard(message.content, index)}
-                        className="h-8 w-8"  
+                        className="h-10 w-10" // Increased size
                       >
                         {copiedIndex === index ? (
-                          <Check className="h-4 w-4" />  
+                          <Check className="h-5 w-5" /> // Increased icon size
                         ) : (
-                          <Copy className="h-4 w-4" /> 
+                          <Copy className="h-5 w-5" /> // Increased icon size
                         )}
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"  
+                        size="sm"
                         onClick={() => regenerateResponse(index)}
-                        className="h-8 w-8"  
+                        className="h-10 w-10" // Increased size
                         disabled={regeneratingIndexes.has(index)}
                       >
-                        <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
-                       
+                        <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> // Increased icon size
                       </Button>
                     </div>
                   )}
