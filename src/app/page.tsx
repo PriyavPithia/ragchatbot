@@ -56,17 +56,36 @@ export default function Home() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Modify the scroll to bottom function
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       const { scrollHeight, clientHeight, scrollTop } = messagesEndRef.current;
-      const isScrolledToBottom = scrollHeight - clientHeight <= scrollTop + 100; // 100px threshold
-      if (isScrolledToBottom) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      const isNearBottom = scrollHeight - clientHeight <= scrollTop + 100; // 100px threshold
+      if (isNearBottom) {
+        messagesEndRef.current.scrollTop = scrollHeight - clientHeight;
       }
     }
   }, []);
+
+  const debouncedScrollToBottom = useCallback(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(scrollToBottom, 100);
+  }, [scrollToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    debouncedScrollToBottom();
+  }, [messages, debouncedScrollToBottom]);
 
   // Modify the useEffect for keyboard visibility
   useEffect(() => {
@@ -148,12 +167,12 @@ export default function Home() {
   useEffect(() => {
     console.log('Home component effect', { authLoading, user })
     if (!authLoading) {
-      if (!user) {
-        console.log('No user found, redirecting to auth page')
-        router.push('/auth')
-      } else {
+      if (user) {
         console.log('User authenticated, fetching chats')
         fetchChats()
+      } else {
+        console.log('No user found, redirecting to auth page')
+        router.push('/auth')
       }
     }
   }, [user, authLoading, router, fetchChats])
@@ -473,8 +492,8 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <div className="flex flex-col h-full" ref={messagesEndRef}>
-            <ScrollArea className="flex-grow overflow-y-auto px-4 pb-20 md:pb-16"> {/* Increased bottom padding for mobile */}
+          <ScrollArea className="h-full" ref={messagesEndRef}>
+            <div className="flex flex-col px-4 pb-20 md:pb-16">
               {messages
                 .filter(message => message.chat_id === activeChat)
                 .map((message, index) => (
@@ -532,9 +551,8 @@ export default function Home() {
                   <LoadingDots />
                 </div>
               )}
-              <div ref={messagesEndRef} />
-            </ScrollArea>
-          </div>
+            </div>
+          </ScrollArea>
         );
       case 'knowledgebase':
         return <KnowledgeBase />;
@@ -551,7 +569,8 @@ export default function Home() {
   }
 
   if (!user) {
-    console.log('No user, returning null')
+    console.log('No user, redirecting to auth page')
+    router.push('/auth')
     return null
   }
 
@@ -602,13 +621,11 @@ export default function Home() {
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
           <main className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              {renderTabContent()}
-            </ScrollArea>
+            {renderTabContent()}
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'sticky' : 'fixed'} bottom-0 ${!isMobile ? 'left-64 right-0' : 'left-0 right-0'} bg-background z-10`}>
-              <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl ml-auto">
+            <footer className="p-2 sm:p-4 border-t fixed bottom-0 left-0 right-0 bg-background z-10">
+              <form onSubmit={handleSendMessage} className="flex space-x-2 w-full">
                 <Input
                   name="message"
                   placeholder="Type your message..."
@@ -618,7 +635,7 @@ export default function Home() {
                   disabled={isLoading}
                   autoComplete="off"
                 />
-                <Button type="submit" disabled={isLoading} className="px-3 py-2">
+                <Button type="submit" disabled={isLoading} className="px-3 py-2 shrink-0">
                   <Send className="h-5 w-5" />
                 </Button>
               </form>
@@ -626,7 +643,6 @@ export default function Home() {
           )}
         </div>
       </div>
-      <div ref={messagesEndRef} />
     </div>
   );
 }

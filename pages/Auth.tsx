@@ -18,6 +18,11 @@ export default function Auth() {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
+  if (user) {
+    router.push('/')
+    return null
+  }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <AuthForm />

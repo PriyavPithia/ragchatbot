@@ -32,94 +32,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  const loadApiKey = async (userId: string) => {
-    try {
-      const storedApiKey = localStorage.getItem('geminiApiKey')
-      if (storedApiKey) {
-        setApiKey(storedApiKey)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('key')
-        .eq('user_id', userId)
-        .single()
-
-      if (error) throw error
-
-      if (data && data.key) {
-        setApiKey(data.key)
-        localStorage.setItem('geminiApiKey', data.key)
-      }
-    } catch (error) {
-      console.error('Error loading API key:', error)
-    }
-  }
-
   useEffect(() => {
     const initializeAuth = async () => {
       setIsLoading(true)
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          setUser(session.user)
-          setSession(session)
-          await loadApiKey(session.user.id)
-        }
-      } catch (error) {
-        console.error('Error during auth initialization:', error)
-      } finally {
-        setIsLoading(false)
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Initial session:', session)
+      setSession(session)
+      setUser(session?.user ?? null)
+      setIsLoading(false)
+
+      if (session) {
+        router.push('/')
       }
     }
 
     initializeAuth()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-        setSession(session)
-        if (event === 'SIGNED_IN') {
-          if (session) {
-            await loadApiKey(session.user.id)
-            router.push('/')
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setApiKey('')
-          localStorage.removeItem('geminiApiKey')
-          router.push('/auth')
-        }
-      }
-    )
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session)
+      setSession(session)
+      setUser(session?.user ?? null)
+      setIsLoading(false)
 
-    return () => {
-      subscription.unsubscribe()
-    }
+      if (event === 'SIGNED_IN') {
+        router.push('/')
+      } else if (event === 'SIGNED_OUT') {
+        setApiKey('')
+        localStorage.removeItem('geminiApiKey')
+        router.push('/auth')
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [router])
 
-  // Add a periodic check for authentication status
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session && !isLoading) {
-        console.log('User is authenticated, ensuring they are on the home page')
-        router.push('/')
-      }
-    }
-
-    const interval = setInterval(checkAuthStatus, 5000) // Check every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [supabase.auth, router, isLoading])
-
   const signOut = async () => {
-    setIsLoading(true)
     await supabase.auth.signOut()
-    setApiKey('')
-    localStorage.removeItem('geminiApiKey')
-    router.push('/auth')
-    setIsLoading(false)
   }
 
   return (
