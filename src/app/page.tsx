@@ -74,13 +74,13 @@ export default function Home() {
         behavior: smooth ? 'smooth' : 'auto', 
         block: 'end' 
       });
-      setShowScrollButton(false);
     }
   }, [userHasScrolled, isNearBottom]);
 
   const handleScrollButtonClick = useCallback(() => {
     scrollToBottom(true, true);
     setUserHasScrolled(false);
+    setShowScrollButton(false);
   }, [scrollToBottom]);
 
   const handleScroll = useCallback(() => {
@@ -341,7 +341,7 @@ export default function Home() {
     // Immediately add the user's message to the chat
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    scrollToBottom(true, false);  // Scroll immediately after adding user's message
+    scrollToBottom(true, false);  // Force scroll to bottom after sending message
 
     setIsLoading(true);
 
