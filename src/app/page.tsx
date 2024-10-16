@@ -57,6 +57,32 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Add this function to scroll to bottom
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  // Modify the useEffect for keyboard visibility
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== 'undefined') {
+        const isKeyboard = window.visualViewport.height < window.innerHeight;
+        setIsKeyboardVisible(isKeyboard);
+        if (isKeyboard) {
+          scrollToBottom();
+        }
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    return () => window.visualViewport.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Add this useEffect to scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const fetchChats = useCallback(async () => {
     if (user) {
       try {
@@ -291,6 +317,7 @@ export default function Home() {
       }
 
       console.log('Messages saved successfully', data);
+      scrollToBottom();
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
@@ -299,6 +326,7 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
+      scrollToBottom();
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase]);
 
@@ -334,6 +362,7 @@ export default function Home() {
       setActiveTab('chat');
       setMessages([]); 
       setGeminiChat(null);
+      scrollToBottom();
     } catch (error) {
       console.error('Error creating new chat:', error);
       setMessage('Failed to create a new chat. Please try again.');
@@ -498,19 +527,6 @@ export default function Home() {
     }
   };
 
-  // Add this new useEffect
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== 'undefined') {
-        const isKeyboard = window.innerHeight < window.outerHeight;
-        setIsKeyboardVisible(isKeyboard);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   if (authLoading) {
     console.log('Auth is loading')
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -568,10 +584,12 @@ export default function Home() {
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
           <main className="flex-1 overflow-hidden">
-            {renderTabContent()}
+            <ScrollArea className="h-full">
+              {renderTabContent()}
+            </ScrollArea>
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'absolute bottom-0' : 'fixed bottom-0'} left-0 right-0 bg-background z-10`}>
+            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'sticky' : 'fixed'} bottom-0 left-0 right-0 bg-background z-10`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2">
                 <Input
                   name="message"
@@ -590,6 +608,7 @@ export default function Home() {
           )}
         </div>
       </div>
+      <div ref={messagesEndRef} />
     </div>
   );
 }
