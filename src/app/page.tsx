@@ -60,7 +60,7 @@ export default function Home() {
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, []);
 
@@ -318,11 +318,15 @@ export default function Home() {
       return;
     }
 
-    setIsLoading(true);
     const currentChatId = activeChat;
     const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: currentChatId };
+    
+    // Immediately add the user's message to the chat
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
+    scrollToBottom();
+
+    setIsLoading(true);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -330,15 +334,9 @@ export default function Home() {
       console.log('Response generated successfully');
       const newBotMessage: Message = { role: 'bot', content: response, chat_id: currentChatId };
       
-     
-      setMessages(prev => {
-        const updatedMessages = prev.filter(msg => msg.chat_id !== currentChatId);
-        return [...updatedMessages, newUserMessage, newBotMessage].sort((a, b) => 
-          (a.chat_id === b.chat_id) ? 0 : (a.chat_id === currentChatId ? -1 : 1)
-        );
-      });
+      // Add the bot's response to the chat
+      setMessages(prev => [...prev, newBotMessage]);
       
-    
       console.log('Saving messages to database...');
       const { data, error } = await supabase
         .from('messages')
@@ -350,7 +348,6 @@ export default function Home() {
       }
 
       console.log('Messages saved successfully', data);
-      setTimeout(scrollToBottom, 100); // Add a small delay before scrolling
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
@@ -488,7 +485,7 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <ScrollArea className="h-full" ref={messagesEndRef}>
+          <ScrollArea className="h-full">
             <div className="flex flex-col px-4 pb-20 md:pb-16">
               {messages
                 .filter(message => message.chat_id === activeChat)
@@ -498,12 +495,12 @@ export default function Home() {
                     className={`mb-6 ${
                       message.role === 'user'
                         ? 'ml-auto'
-                        : 'mr-auto'
-                    } w-full max-w-[80%]`}
+                        : 'mr-auto w-full max-w-[80%]'
+                    }`}
                   >
                     <div className={`rounded-lg p-4 ${
                       message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-primary text-primary-foreground inline-block'
                         : 'bg-secondary text-secondary-foreground'
                     }`}>
                       <ReactMarkdown
@@ -516,32 +513,32 @@ export default function Home() {
                       >
                         {message.content}
                       </ReactMarkdown>
+                      {message.role === 'bot' && (
+                        <div className="flex justify-end space-x-2 mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(message.content, index)}
+                            className="h-8 w-8"
+                          >
+                            {copiedIndex === index ? (
+                              <Check className="h-5 w-5" />
+                            ) : (
+                              <Copy className="h-5 w-5" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => regenerateResponse(index)}
+                            className="h-8 w-8"
+                            disabled={regeneratingIndexes.has(index)}
+                          >
+                            <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {message.role === 'bot' && (
-                      <div className="flex justify-end space-x-2 mt-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(message.content, index)}
-                          className="h-8 w-8"
-                        >
-                          {copiedIndex === index ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => regenerateResponse(index)}
-                          className="h-8 w-8"
-                          disabled={regeneratingIndexes.has(index)}
-                        >
-                          <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 ))}
               {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
@@ -550,6 +547,7 @@ export default function Home() {
                 </div>
               )}
             </div>
+            <div ref={messagesEndRef} />
           </ScrollArea>
         );
       case 'knowledgebase':
