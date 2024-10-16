@@ -35,7 +35,6 @@ type Message = {
 
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
-  console.log('Home component rendered:', { user, authLoading, apiKey })
   const router = useRouter()
   const supabase = createClientComponentClient()
 
@@ -101,14 +100,11 @@ export default function Home() {
   };
 
   useEffect(() => {
-    console.log('Home page effect', { authLoading, user })
     if (!authLoading) {
-      if (user) {
-        console.log('User is authenticated, fetching chats')
-        fetchChats()
-      } else {
-        console.log('No user, redirecting to auth page')
+      if (!user) {
         router.push('/auth')
+      } else {
+        fetchChats()
       }
     }
   }, [user, authLoading, router, fetchChats])
@@ -488,7 +484,14 @@ export default function Home() {
     }
   };
 
-  console.log('Rendering main component', { user, chats })
+  if (authLoading) {
+    return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
+  }
+
+  if (!user) {
+    return null // This will prevent any content from rendering before redirect
+  }
+
   return (
     <div className="flex h-screen bg-background">
       {!isMobile && (
