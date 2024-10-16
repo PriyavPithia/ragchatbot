@@ -56,7 +56,9 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    console.log('Home page effect', { authLoading, user })
     if (!authLoading && !user) {
+      console.log('Redirecting to auth page')
       router.push('/auth')
     }
   }, [user, authLoading, router])
@@ -77,6 +79,7 @@ export default function Home() {
     }
 
     if (user) {
+      console.log('Fetching chats for user:', user.id)
       fetchChats();
     }
 
@@ -483,13 +486,16 @@ export default function Home() {
   };
 
   if (authLoading) {
+    console.log('Auth is loading')
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
   if (!user) {
+    console.log('No user, returning null')
     return null
   }
 
+  console.log('Rendering main component')
   return (
     <div className="flex h-screen bg-background">
       {!isMobile && (

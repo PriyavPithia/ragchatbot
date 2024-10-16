@@ -33,15 +33,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('Initializing auth')
       setIsLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
+      console.log('Session:', session)
       if (session) {
         setUser(session.user)
         setSession(session)
         await loadApiKey(session.user.id)
-        router.push('/') // Redirect to home page if session exists
+        console.log('User authenticated, redirecting to home')
+        router.push('/')
       } else {
-        router.push('/auth') // Redirect to auth page if no session
+        console.log('No session, redirecting to auth page')
+        router.push('/auth')
       }
       setIsLoading(false)
     }
@@ -50,18 +54,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event)
         setIsLoading(true)
         setSession(session)
         setUser(session?.user ?? null)
         if (event === 'SIGNED_IN') {
           if (session) {
             await loadApiKey(session.user.id)
-            router.push('/') // Redirect to home page on sign in
+            console.log('User signed in, redirecting to home')
+            router.push('/')
           }
         } else if (event === 'SIGNED_OUT') {
           setApiKey('')
           localStorage.removeItem('geminiApiKey')
-          router.push('/auth') // Redirect to auth page on sign out
+          console.log('User signed out, redirecting to auth page')
+          router.push('/auth')
         }
         setIsLoading(false)
       }
