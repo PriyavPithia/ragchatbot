@@ -56,65 +56,31 @@ export default function Home() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+      messagesEndRef.current.scrollIntoView({ behavior: "auto", block: "end" });
     }
   }, []);
 
-  const debouncedScrollToBottom = useCallback(() => {
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    scrollTimeoutRef.current = setTimeout(scrollToBottom, 100);
-  }, [scrollToBottom]);
-
   useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
-  useEffect(() => {
-    debouncedScrollToBottom();
-  }, [messages, debouncedScrollToBottom]);
-
-  // Modify the useEffect for keyboard visibility
   useEffect(() => {
     const handleResize = () => {
-      if (typeof window !== 'undefined' && window.visualViewport) {
-        const isKeyboard = window.visualViewport.height < window.innerHeight;
+      if (typeof window !== 'undefined') {
+        const isKeyboard = window.innerHeight < window.outerHeight;
         setIsKeyboardVisible(isKeyboard);
         if (isKeyboard) {
-          scrollToBottom();
+          setTimeout(scrollToBottom, 100); // Delay scroll when keyboard appears
         }
       }
     };
 
-    if (typeof window !== 'undefined') {
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', handleResize);
-        return () => {
-          window.visualViewport?.removeEventListener('resize', handleResize);
-        };
-      } else {
-        // Fallback for browsers that don't support visualViewport
-        window.addEventListener('resize', handleResize);
-        return () => {
-          window.removeEventListener('resize', handleResize);
-        };
-      }
-    }
-  }, []);
-
-  // Add this useEffect to scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [scrollToBottom]);
 
   const fetchChats = useCallback(async () => {
     if (user) {
@@ -485,70 +451,72 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <ScrollArea className="h-full">
-            <div className="flex flex-col px-4 pb-20 md:pb-16">
-              {messages
-                .filter(message => message.chat_id === activeChat)
-                .map((message, index) => (
-                  <div
-                    key={index}
-                    className={`mb-6 ${
-                      message.role === 'user'
-                        ? 'ml-auto'
-                        : 'mr-auto w-full max-w-[80%]'
-                    }`}
-                  >
-                    <div className={`rounded-lg p-4 ${
-                      message.role === 'user'
-                        ? 'bg-primary text-primary-foreground inline-block'
-                        : 'bg-secondary text-secondary-foreground'
-                    }`}>
-                      <ReactMarkdown
-                        components={{
-                          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-                          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-                          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
-                      {message.role === 'bot' && (
-                        <div className="flex justify-end space-x-2 mt-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(message.content, index)}
-                            className="h-8 w-8"
-                          >
-                            {copiedIndex === index ? (
-                              <Check className="h-5 w-5" />
-                            ) : (
-                              <Copy className="h-5 w-5" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => regenerateResponse(index)}
-                            className="h-8 w-8"
-                            disabled={regeneratingIndexes.has(index)}
-                          >
-                            <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
-                          </Button>
-                        </div>
-                      )}
+          <div className="flex flex-col h-full">
+            <ScrollArea className="flex-grow overflow-y-auto pt-16 pb-20">
+              <div className="flex flex-col px-4">
+                {messages
+                  .filter(message => message.chat_id === activeChat)
+                  .map((message, index) => (
+                    <div
+                      key={index}
+                      className={`mb-6 ${
+                        message.role === 'user'
+                          ? 'ml-auto'
+                          : 'mr-auto w-full max-w-[80%]'
+                      }`}
+                    >
+                      <div className={`rounded-lg ${
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground inline-block py-2 px-3' // Reduced padding here
+                          : 'bg-secondary text-secondary-foreground p-4'
+                      }`}>
+                        <ReactMarkdown
+                          components={{
+                            p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+                            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
+                            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                        {message.role === 'bot' && (
+                          <div className="flex justify-end space-x-2 mt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(message.content, index)}
+                              className="h-8 w-8"
+                            >
+                              {copiedIndex === index ? (
+                                <Check className="h-5 w-5" />
+                              ) : (
+                                <Copy className="h-5 w-5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => regenerateResponse(index)}
+                              className="h-8 w-8"
+                              disabled={regeneratingIndexes.has(index)}
+                            >
+                              <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  ))}
+                {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
+                  <div className="mb-4 p-3 rounded-lg bg-secondary text-secondary-foreground max-w-[80%] mr-auto">
+                    <LoadingDots />
                   </div>
-                ))}
-              {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
-                <div className="mb-4 p-3 rounded-lg bg-secondary text-secondary-foreground max-w-[80%] mr-auto">
-                  <LoadingDots />
-                </div>
-              )}
-            </div>
-            <div ref={messagesEndRef} />
-          </ScrollArea>
+                )}
+              </div>
+              <div ref={messagesEndRef} />
+            </ScrollArea>
+          </div>
         );
       case 'knowledgebase':
         return <KnowledgeBase />;
@@ -573,7 +541,7 @@ export default function Home() {
   console.log('Rendering main component')
   return (
     <div className="flex flex-col h-screen bg-background">
-      <header className="flex items-center justify-between px-4 h-16 border-b sticky top-0 bg-background z-10">
+      <header className="flex items-center justify-between px-4 h-16 border-b fixed top-0 left-0 right-0 bg-background z-20">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && !isMobile && (
@@ -599,7 +567,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden pt-16">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -639,7 +607,6 @@ export default function Home() {
           )}
         </div>
       </div>
-      <div ref={messagesEndRef} />
     </div>
   );
 }
