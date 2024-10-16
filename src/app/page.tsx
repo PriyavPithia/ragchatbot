@@ -384,6 +384,43 @@ export default function Home() {
     }
   };
 
+  const copyToClipboard = (content: string, index: number) => {
+    navigator.clipboard.writeText(content);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const regenerateResponse = async (index: number) => {
+    if (!activeChat) return;
+    setRegeneratingIndexes(prev => new Set(prev).add(index));
+    const userMessage = messages[index - 1].content;
+
+    try {
+      const response = await generateResponse(userMessage);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        newMessages[index] = { ...newMessages[index], content: response, id: newMessages[index].id };
+        return newMessages;
+      });
+
+      // Update the message in the database
+      if (messages[index].id) {
+        await supabase.from('messages').update({
+          content: response
+        }).eq('chat_id', activeChat).eq('id', messages[index].id);
+      }
+
+    } catch (error) {
+      console.error('Error regenerating response:', error);
+    } finally {
+      setRegeneratingIndexes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(index);
+        return newSet;
+      });
+    }
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'chat':
@@ -400,7 +437,45 @@ export default function Home() {
                       : 'chatbot-message mr-auto'
                   } max-w-[80%]`}
                 >
-                  {/* ... (message content rendering) */}
+                  <div className={`markdown-content text-xs p-4 pb-2 ${
+                    message.role === 'user' ? 'text-primary-foreground pt-2' : ''
+                  }`}>
+                    <ReactMarkdown
+                      components={{
+                        p: ({ node, ...props }) => <p className="mb-1" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+                        li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                  {message.role === 'bot' && (
+                    <div className="flex justify-end space-x-1 p-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => copyToClipboard(message.content, index)}
+                        className="h-6 w-6"
+                      >
+                        {copiedIndex === index ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => regenerateResponse(index)}
+                        className="h-6 w-6"
+                        disabled={regeneratingIndexes.has(index)}
+                      >
+                        <RefreshCw className={`h-3 w-3 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
