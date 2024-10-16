@@ -546,14 +546,14 @@ export default function Home() {
                 <Input
                   name="message"
                   placeholder="Type your message..."
-                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"  // Changed from text-xs to text-base
+                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   disabled={isLoading}
                   autoComplete="off"
                 />
-                <Button type="submit" disabled={isLoading} className="px-4 py-2 text-base">  // Increased padding and font size
-                  <Send className="h-5 w-5 mr-2" />  // Increased from h-4 w-4 to h-5 w-5, added mr-2
+                <Button type="submit" disabled={isLoading} className="px-4 py-2 text-base">
+                  <Send className="h-5 w-5 mr-2" />
                   Send
                 </Button>
               </form>
