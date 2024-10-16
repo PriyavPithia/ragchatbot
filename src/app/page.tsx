@@ -216,7 +216,7 @@ export default function Home() {
 
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     setActiveChat(chatId);
-    setMessages([]);  // Clear messages immediately to prevent flickering
+    setIsLoading(true); // Add loading state while fetching messages
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -228,6 +228,9 @@ export default function Home() {
       setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
+      setMessages([]); // Set to empty array if there's an error
+    } finally {
+      setIsLoading(false);
     }
   }, [supabase]);
 
@@ -344,6 +347,7 @@ export default function Home() {
     const currentChatId = activeChat;
     const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: currentChatId };
     
+    // Immediately add the user's message to the chat
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
     scrollToBottom(true, false);  // Scroll immediately without smooth animation
@@ -356,6 +360,7 @@ export default function Home() {
       console.log('Response generated successfully');
       const newBotMessage: Message = { role: 'bot', content: response, chat_id: currentChatId };
       
+      // Add the bot's response to the chat
       setMessages(prev => [...prev, newBotMessage]);
       
       console.log('Saving messages to database...');
