@@ -99,6 +99,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    console.log('Home component effect', { authLoading, user })
     if (!authLoading) {
       if (!user) {
         console.log('No user found, redirecting to auth page')
@@ -488,13 +489,16 @@ export default function Home() {
   };
 
   if (authLoading) {
+    console.log('Auth is loading')
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
   if (!user) {
-    return null 
+    console.log('No user, returning null')
+    return null
   }
 
+  console.log('Rendering main component')
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between px-4 h-16 border-b sticky top-0 bg-background z-10">

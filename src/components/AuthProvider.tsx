@@ -23,13 +23,14 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true
 })
 
+const supabase = createClientComponentClient()
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [apiKey, setApiKey] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
   const loadApiKey = async (userId: string) => {
     try {
@@ -60,20 +61,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       console.log('Initializing auth')
       setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('Session:', session)
-      if (session) {
-        console.log('User authenticated:', session.user)
-        setUser(session.user)
-        setSession(session)
-        await loadApiKey(session.user.id)
-        console.log('User authenticated, redirecting to home')
-        router.push('/')
-      } else {
-        console.log('No session, redirecting to auth page')
-        router.push('/auth')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('Session:', session)
+        if (session) {
+          console.log('User authenticated:', session.user)
+          setUser(session.user)
+          setSession(session)
+          await loadApiKey(session.user.id)
+          console.log('User authenticated, redirecting to home')
+          router.push('/')
+        } else {
+          console.log('No session, redirecting to auth page')
+          router.push('/auth')
+        }
+      } catch (error) {
+        console.error('Error during auth initialization:', error)
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
 
     initializeAuth()
@@ -100,20 +106,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     )
 
-    // Add a timeout to prevent endless loading
+    // Increase timeout to 20 seconds
     const timeout = setTimeout(() => {
       if (isLoading) {
         console.log('Auth initialization timed out, redirecting to auth page')
         setIsLoading(false)
         router.push('/auth')
       }
-    }, 10000) // 10 seconds timeout
+    }, 20000) // 20 seconds timeout
 
     return () => {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [router, supabase.auth])
+  }, [router])
 
   // Add a periodic check for authentication status
   useEffect(() => {
