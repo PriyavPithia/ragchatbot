@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { supabase } from '@/lib/supabaseClient'; // Ensure this path is correct
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Loader2, Chrome } from "lucide-react";
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useState } from 'react'; // This is the only useState import we need
 
 export function AuthForm() {
   const [email, setEmail] = useState('');
@@ -39,7 +39,11 @@ export function AuthForm() {
       }
     } catch (error) {
       console.error(`Error ${isSignUp ? 'signing up' : 'signing in'}:`, error);
-      setMessage(`Error: ${error.message}`);
+      if (error instanceof Error) {
+        setMessage(`Error: ${error.message}`);
+      } else {
+        setMessage('An unknown error occurred');
+      }
     } finally {
       setIsLoading(false);
     }
