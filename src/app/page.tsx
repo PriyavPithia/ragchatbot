@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
 import { Send, Copy, RefreshCw, Check } from 'lucide-react'
@@ -13,7 +13,6 @@ import { Sidebar } from '../components/Sidebar'
 import { KnowledgeBase } from '../components/KnowledgeBase'
 import { ApiKey } from '../components/ApiKey'
 import ReactMarkdown from 'react-markdown'
-import { useState, useCallback, useRef } from 'react'
 import { LoadingDots } from '@/components/LoadingDots'
 import { GoogleGenerativeAI, GenerativeModel, ChatSession } from "@google/generative-ai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
@@ -39,20 +38,6 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth')
-    }
-  }, [user, authLoading, router])
-
-  if (authLoading) {
-    return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
-  }
-
-  if (!user) {
-    return null // or a loading indicator
-  }
-
   const [isMobile, setIsMobile] = useState(false)
   const [activeTab, setActiveTab] = useState('chat')
   const [messages, setMessages] = useState<Message[]>([
@@ -62,15 +47,19 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [regeneratingIndexes, setRegeneratingIndexes] = useState<Set<number>>(new Set())
-  const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [activeKnowledgeBase, setActiveKnowledgeBase] = useState<string | null>(null);
-  const [chats, setChats] = useState<{ id: string; name: string }[]>([]);
-
-  const [geminiChat, setGeminiChat] = useState<ChatSession | null>(null);
-
-  const [message, setMessage] = useState('');
+  const [activeChat, setActiveChat] = useState<string | null>(null)
+  const [activeKnowledgeBase, setActiveKnowledgeBase] = useState<string | null>(null)
+  const [chats, setChats] = useState<{ id: string; name: string }[]>([])
+  const [geminiChat, setGeminiChat] = useState<ChatSession | null>(null)
+  const [message, setMessage] = useState('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth')
+    }
+  }, [user, authLoading, router])
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -82,13 +71,11 @@ export default function Home() {
       setActiveKnowledgeBase(storedActiveKB);
     }
 
-    // Load API key from localStorage if it exists
     const storedApiKey = localStorage.getItem('geminiApiKey');
     if (storedApiKey) {
       setApiKey(storedApiKey);
     }
 
-    // Fetch the user's chats
     if (user) {
       fetchChats();
     }
@@ -494,6 +481,14 @@ export default function Home() {
         return null;
     }
   };
+
+  if (authLoading) {
+    return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
+  }
+
+  if (!user) {
+    return null
+  }
 
   return (
     <div className="flex h-screen bg-background">
