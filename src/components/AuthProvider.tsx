@@ -100,10 +100,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     )
 
+    // Add a timeout to prevent endless loading
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('Auth initialization timed out, redirecting to auth page')
+        setIsLoading(false)
+        router.push('/auth')
+      }
+    }, 10000) // 10 seconds timeout
+
     return () => {
       subscription.unsubscribe()
+      clearTimeout(timeout)
     }
-  }, [router, supabase.auth]);
+  }, [router, supabase.auth])
+
+  // Add a periodic check for authentication status
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session && !isLoading) {
+        console.log('User is authenticated, ensuring they are on the home page')
+        router.push('/')
+      }
+    }
+
+    const interval = setInterval(checkAuthStatus, 5000) // Check every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [supabase.auth, router, isLoading])
 
   const signOut = async () => {
     setIsLoading(true)

@@ -101,8 +101,10 @@ export default function Home() {
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
+        console.log('No user found, redirecting to auth page')
         router.push('/auth')
       } else {
+        console.log('User authenticated, fetching chats')
         fetchChats()
       }
     }
@@ -414,7 +416,7 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <ScrollArea className="flex-grow overflow-y-auto px-4 pb-16"> {/* Added pb-16 for mobile input spacing */}
+            <ScrollArea className="flex-grow overflow-y-auto px-4 pb-20 md:pb-16"> {/* Increased bottom padding for mobile */}
               {messages
                 .filter(message => message.chat_id === activeChat)
                 .map((message, index) => (
@@ -498,7 +500,7 @@ export default function Home() {
       <header className="flex items-center justify-between px-4 h-16 border-b sticky top-0 bg-background z-10">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
-          {activeTab === 'chat' && (
+          {activeTab === 'chat' && !isMobile && ( // Only show New Chat button on desktop
             <Button
               variant="outline"
               size="default"
@@ -537,12 +539,12 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 overflow-hidden flex flex-col relative"> {/* Added relative positioning */}
+        <div className="flex-1 overflow-hidden flex flex-col relative">
           <main className="flex-1 overflow-hidden">
             {renderTabContent()}
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className="p-2 sm:p-4 border-t sticky bottom-0 bg-background z-10"> {/* Made footer sticky */}
+            <footer className="p-2 sm:p-4 border-t fixed bottom-0 left-0 right-0 bg-background z-10"> {/* Changed to fixed positioning */}
               <form onSubmit={handleSendMessage} className="flex space-x-2">
                 <Input
                   name="message"
