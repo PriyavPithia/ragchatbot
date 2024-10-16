@@ -92,6 +92,8 @@ const MemoizedMessage = memo(({ message, index, copyToClipboard, regenerateRespo
   </div>
 ));
 
+MemoizedMessage.displayName = 'MemoizedMessage';
+
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
   const router = useRouter()
