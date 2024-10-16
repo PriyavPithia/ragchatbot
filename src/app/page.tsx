@@ -223,7 +223,7 @@ export default function Home() {
     }
   }, [supabase, scrollToBottom]);
 
-  const fetchApiKey = async () => {
+  const fetchApiKey = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -242,7 +242,13 @@ export default function Home() {
     } catch (error) {
       console.error('Error fetching API key:', error);
     }
-  };
+  }, [user, supabase, setApiKey]);
+
+  useEffect(() => {
+    if (user) {
+      fetchApiKey();
+    }
+  }, [user, fetchApiKey]);
 
   const generateResponse = async (prompt: string) => {
     console.log('Generating response...');
