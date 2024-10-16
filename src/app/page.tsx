@@ -68,20 +68,12 @@ export default function Home() {
     return false;
   }, []);
 
-  const scrollToBottom = useCallback((force: boolean = false, smooth: boolean = true) => {
-    if (force || (!userHasScrolled && isNearBottom())) {
-      messagesEndRef.current?.scrollIntoView({ 
-        behavior: smooth ? 'smooth' : 'auto', 
-        block: 'end' 
-      });
-    }
-  }, [userHasScrolled, isNearBottom]);
-
-  const handleScrollButtonClick = useCallback(() => {
-    scrollToBottom(true, true);
-    setUserHasScrolled(false);
-    setShowScrollButton(false);
-  }, [scrollToBottom]);
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: smooth ? 'smooth' : 'auto', 
+      block: 'end' 
+    });
+  }, []);
 
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
@@ -227,7 +219,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
       // Scroll to bottom after loading messages
-      setTimeout(() => scrollToBottom(true, false), 100);
+      setTimeout(() => scrollToBottom(false), 100);
     }
   }, [supabase, scrollToBottom]);
 
@@ -347,7 +339,7 @@ export default function Home() {
     // Immediately add the user's message to the chat
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    scrollToBottom(true, false);  // Force scroll to bottom after sending message
+    scrollToBottom(false);  // Scroll to bottom immediately after adding user's message
 
     setIsLoading(true);
 
@@ -359,6 +351,7 @@ export default function Home() {
       
       // Add the bot's response to the chat
       setMessages(prev => [...prev, newBotMessage]);
+      scrollToBottom();  // Scroll to bottom after adding AI's response
       
       console.log('Saving messages to database...');
       const { data, error } = await supabase
@@ -379,7 +372,7 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
-      scrollToBottom(true, true);  // Scroll smoothly after response is received
+      scrollToBottom();  // Ensure we're scrolled to bottom after everything is done
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -415,7 +408,7 @@ export default function Home() {
       setActiveTab('chat');
       setMessages([]); 
       setGeminiChat(null);
-      scrollToBottom(true, false);
+      scrollToBottom(false);
     } catch (error) {
       console.error('Error creating new chat:', error);
       setMessage('Failed to create a new chat. Please try again.');
@@ -570,7 +563,6 @@ export default function Home() {
             <ScrollArea 
               className="flex-grow overflow-y-auto pt-16 pb-20" 
               ref={scrollAreaRef}
-              onScroll={handleScroll}
             >
               <div className="flex flex-col px-4">
                 {memoizedMessages}
@@ -582,14 +574,12 @@ export default function Home() {
               </div>
               <div ref={messagesEndRef} />
             </ScrollArea>
-            {showScrollButton && (
-              <Button
-                className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
-                onClick={handleScrollButtonClick}
-              >
-                <ArrowDown size={24} />
-              </Button>
-            )}
+            <Button
+              className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
+              onClick={() => scrollToBottom()}
+            >
+              <ArrowDown size={24} />
+            </Button>
           </div>
         );
       case 'knowledgebase':
@@ -599,7 +589,7 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, isLoading, showScrollButton, handleScrollButtonClick, handleScroll]);
+  }, [activeTab, memoizedMessages, isLoading, scrollToBottom]);
 
   if (authLoading) {
     console.log('Auth is loading')
