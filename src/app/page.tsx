@@ -22,6 +22,7 @@ import { HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { memo } from 'react';
 
 const MODEL_NAME = "gemini-1.0-pro";
 
@@ -31,6 +32,65 @@ type Message = {
   id?: string;
   chat_id?: string;
 };
+
+const MemoizedMessage = memo(({ message, index, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes }: {
+  message: Message;
+  index: number;
+  copyToClipboard: (content: string, index: number) => void;
+  regenerateResponse: (index: number) => Promise<void>;
+  copiedIndex: number | null;
+  regeneratingIndexes: Set<number>;
+}) => (
+  <div
+    className={`mb-6 ${
+      message.role === 'user'
+        ? 'ml-auto'
+        : 'mr-auto w-full max-w-[80%]'
+    }`}
+  >
+    <div className={`rounded-lg ${
+      message.role === 'user'
+        ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
+        : 'bg-secondary text-secondary-foreground p-4'
+    }`}>
+      <ReactMarkdown
+        components={{
+          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
+          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+        }}
+      >
+        {message.content}
+      </ReactMarkdown>
+      {message.role === 'bot' && (
+        <div className="flex justify-end space-x-2 mt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => copyToClipboard(message.content, index)}
+            className="h-10 w-10"
+          >
+            {copiedIndex === index ? (
+              <Check className="h-6 w-6" />
+            ) : (
+              <Copy className="h-6 w-6" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => regenerateResponse(index)}
+            className="h-10 w-10"
+            disabled={regeneratingIndexes.has(index)}
+          >
+            <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
+          </Button>
+        </div>
+      )}
+    </div>
+  </div>
+));
 
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
@@ -69,10 +129,13 @@ export default function Home() {
   }, []);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: smooth ? 'smooth' : 'auto', 
-      block: 'end' 
-    });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -345,7 +408,9 @@ export default function Home() {
     // Immediately add the user's message to the chat and clear the input
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    scrollToBottom(false);  // Scroll to bottom immediately after adding user's message
+    
+    // Scroll to bottom immediately after adding user's message
+    setTimeout(() => scrollToBottom(false), 0);
 
     // Save the user's message to the database immediately
     try {
@@ -355,8 +420,6 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    // Scroll to bottom to show loading animation
-    setTimeout(() => scrollToBottom(false), 100);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -510,62 +573,21 @@ export default function Home() {
     }
   };
 
-  const renderMessage = useCallback((message: Message, index: number) => (
-    <div
-      key={message.id || index}
-      className={`mb-6 ${
-        message.role === 'user'
-          ? 'ml-auto'
-          : 'mr-auto w-full max-w-[80%]'
-      }`}
-    >
-      <div className={`rounded-lg ${
-        message.role === 'user'
-          ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
-          : 'bg-secondary text-secondary-foreground p-4'
-      }`}>
-        <ReactMarkdown
-          components={{
-            p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-          }}
-        >
-          {message.content}
-        </ReactMarkdown>
-        {message.role === 'bot' && (
-          <div className="flex justify-end space-x-2 mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copyToClipboard(message.content, index)}
-              className="h-10 w-10"
-            >
-              {copiedIndex === index ? (
-                <Check className="h-6 w-6" />
-              ) : (
-                <Copy className="h-6 w-6" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => regenerateResponse(index)}
-              className="h-10 w-10"
-              disabled={regeneratingIndexes.has(index)}
-            >
-              <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  ), [copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]);
-
   const memoizedMessages = useMemo(() => 
-    messages.filter(message => message.chat_id === activeChat).map(renderMessage),
-    [messages, activeChat, renderMessage]
+    messages
+      .filter(message => message.chat_id === activeChat)
+      .map((message, index) => (
+        <MemoizedMessage
+          key={message.id || index}
+          message={message}
+          index={index}
+          copyToClipboard={copyToClipboard}
+          regenerateResponse={regenerateResponse}
+          copiedIndex={copiedIndex}
+          regeneratingIndexes={regeneratingIndexes}
+        />
+      )),
+    [messages, activeChat, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]
   );
 
   const renderTabContent = useMemo(() => {
@@ -585,7 +607,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} style={{ height: '1px', width: '100%' }} />
             </ScrollArea>
             <Button
               className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
