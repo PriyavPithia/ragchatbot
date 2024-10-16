@@ -65,7 +65,7 @@ export default function Home() {
   // Modify the useEffect for keyboard visibility
   useEffect(() => {
     const handleResize = () => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && window.visualViewport) {
         const isKeyboard = window.visualViewport.height < window.innerHeight;
         setIsKeyboardVisible(isKeyboard);
         if (isKeyboard) {
@@ -74,8 +74,20 @@ export default function Home() {
       }
     };
 
-    window.visualViewport.addEventListener('resize', handleResize);
-    return () => window.visualViewport.removeEventListener('resize', handleResize);
+    if (typeof window !== 'undefined') {
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleResize);
+        return () => {
+          window.visualViewport?.removeEventListener('resize', handleResize);
+        };
+      } else {
+        // Fallback for browsers that don't support visualViewport
+        window.addEventListener('resize', handleResize);
+        return () => {
+          window.removeEventListener('resize', handleResize);
+        };
+      }
+    }
   }, []);
 
   // Add this useEffect to scroll to bottom when messages change
@@ -543,7 +555,7 @@ export default function Home() {
       <header className="flex items-center justify-between px-4 h-16 border-b sticky top-0 bg-background z-10">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
-          {activeTab === 'chat' && !isMobile && ( // Only show New Chat button on desktop
+          {activeTab === 'chat' && !isMobile && (
             <Button
               variant="outline"
               size="default"
@@ -568,7 +580,7 @@ export default function Home() {
       </header>
       <div className="flex flex-1 overflow-hidden">
         {!isMobile && (
-          <div className="w-64 border-r">
+          <div className="w-64 border-r flex flex-col">
             <Sidebar
               activeTab={activeTab}
               setActiveTab={setActiveTab}
@@ -589,7 +601,7 @@ export default function Home() {
             </ScrollArea>
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'sticky' : 'fixed'} bottom-0 left-0 right-0 bg-background z-10`}>
+            <footer className={`p-2 sm:p-4 border-t ${isKeyboardVisible ? 'sticky' : 'fixed'} bottom-0 left-0 right-0 bg-background z-10 ${!isMobile ? 'w-[calc(100%-16rem)]' : 'w-full'}`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2">
                 <Input
                   name="message"
