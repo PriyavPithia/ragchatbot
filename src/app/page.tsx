@@ -56,15 +56,21 @@ export default function Home() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "auto", block: "end" });
+  const scrollToBottom = useCallback((force = false) => {
+    if (messagesEndRef.current && scrollAreaRef.current) {
+      const scrollArea = scrollAreaRef.current;
+      const isScrolledToBottom = scrollArea.scrollHeight - scrollArea.clientHeight <= scrollArea.scrollTop + 100;
+      
+      if (force || isScrolledToBottom) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+      }
     }
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(true);
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
@@ -287,10 +293,9 @@ export default function Home() {
     const currentChatId = activeChat;
     const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: currentChatId };
     
-    // Immediately add the user's message to the chat
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    scrollToBottom();
+    scrollToBottom(true);
 
     setIsLoading(true);
 
@@ -300,7 +305,6 @@ export default function Home() {
       console.log('Response generated successfully');
       const newBotMessage: Message = { role: 'bot', content: response, chat_id: currentChatId };
       
-      // Add the bot's response to the chat
       setMessages(prev => [...prev, newBotMessage]);
       
       console.log('Saving messages to database...');
@@ -322,7 +326,7 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
-      setTimeout(scrollToBottom, 100); // Add a small delay before scrolling
+      scrollToBottom(true);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -452,7 +456,7 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <ScrollArea className="flex-grow overflow-y-auto pt-16 pb-20">
+            <ScrollArea className="flex-grow overflow-y-auto pt-16 pb-20" ref={scrollAreaRef}>
               <div className="flex flex-col px-4">
                 {messages
                   .filter(message => message.chat_id === activeChat)
@@ -467,7 +471,7 @@ export default function Home() {
                     >
                       <div className={`rounded-lg ${
                         message.role === 'user'
-                          ? 'bg-primary text-primary-foreground inline-block py-2 px-3' // Reduced padding here
+                          ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
                           : 'bg-secondary text-secondary-foreground p-4'
                       }`}>
                         <ReactMarkdown
@@ -486,22 +490,22 @@ export default function Home() {
                               variant="ghost"
                               size="sm"
                               onClick={() => copyToClipboard(message.content, index)}
-                              className="h-8 w-8"
+                              className="h-10 w-10" // Increased size
                             >
                               {copiedIndex === index ? (
-                                <Check className="h-5 w-5" />
+                                <Check className="h-6 w-6" /> // Increased icon size
                               ) : (
-                                <Copy className="h-5 w-5" />
+                                <Copy className="h-6 w-6" /> // Increased icon size
                               )}
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => regenerateResponse(index)}
-                              className="h-8 w-8"
+                              className="h-10 w-10" // Increased size
                               disabled={regeneratingIndexes.has(index)}
                             >
-                              <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                              <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> // Increased icon size
                             </Button>
                           </div>
                         )}
