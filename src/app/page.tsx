@@ -69,33 +69,31 @@ export default function Home() {
   }, []);
 
   const smartScroll = useCallback(() => {
-    if (!userHasScrolled && !isKeyboardVisible && isNearBottom()) {
+    if (!userHasScrolled && isNearBottom()) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     } else {
       setShowScrollButton(true);
     }
-  }, [userHasScrolled, isKeyboardVisible, isNearBottom]);
+  }, [userHasScrolled, isNearBottom]);
 
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
       const isAtBottom = scrollHeight - scrollTop === clientHeight;
-      setUserHasScrolled(!isAtBottom);
       setShowScrollButton(!isAtBottom);
     }
   }, []);
 
   const scrollToBottom = useCallback((force: boolean = false) => {
-    if (force || (!userHasScrolled && !isKeyboardVisible)) {
+    if (force || (!userHasScrolled && isNearBottom())) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      setUserHasScrolled(false);
       setShowScrollButton(false);
     }
-  }, [userHasScrolled, isKeyboardVisible]);
+  }, [userHasScrolled, isNearBottom]);
 
-  // Create a new function to handle the button click
   const handleScrollButtonClick = useCallback(() => {
     scrollToBottom(true);
+    setUserHasScrolled(false);
   }, [scrollToBottom]);
 
   useEffect(() => {
@@ -365,6 +363,8 @@ export default function Home() {
       setIsLoading(false);
       scrollToBottom(true);
     }
+
+    setUserHasScrolled(false); // Reset user scroll state when sending a new message
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
   const handleNewChat = async () => {
@@ -496,6 +496,8 @@ export default function Home() {
             <ScrollArea 
               className="flex-grow overflow-y-auto pt-16 pb-20" 
               ref={scrollAreaRef}
+              onWheel={() => setUserHasScrolled(true)} // Set userHasScrolled to true on wheel event
+              onTouchMove={() => setUserHasScrolled(true)} // Set userHasScrolled to true on touch move (for mobile)
             >
               <div className="flex flex-col px-4">
                 {messages
@@ -562,7 +564,7 @@ export default function Home() {
             </ScrollArea>
             {showScrollButton && (
               <Button
-                className="absolute bottom-24 right-4 rounded-full p-2"
+                className="fixed bottom-24 right-4 rounded-full p-2 z-20"
                 onClick={handleScrollButtonClick}
               >
                 <ArrowDown size={24} />
