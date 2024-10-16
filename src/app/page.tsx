@@ -426,14 +426,14 @@ export default function Home() {
                       : 'chatbot-message mr-auto'
                   } max-w-[80%]`}
                 >
-                  <div className={`markdown-content text-xs p-4 pb-2 ${
+                  <div className={`markdown-content text-base p-4 pb-2 ${  // Increased from text-xs to text-base
                     message.role === 'user' ? 'text-primary-foreground pt-2' : ''
                   }`}>
                     <ReactMarkdown
                       components={{
-                        p: ({ node, ...props }) => <p className="mb-1" {...props} />,
-                        ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
-                        ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+                        p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
                         li: ({ node, ...props }) => <li className="mb-1" {...props} />,
                       }}
                     >
@@ -441,27 +441,27 @@ export default function Home() {
                     </ReactMarkdown>
                   </div>
                   {message.role === 'bot' && (
-                    <div className="flex justify-end space-x-1 p-2">
+                    <div className="flex justify-end space-x-2 p-2">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"  // Changed from 'icon' to 'sm'
                         onClick={() => copyToClipboard(message.content, index)}
-                        className="h-6 w-6"
+                        className="h-8 w-8"  // Increased from h-6 w-6 to h-8 w-8
                       >
                         {copiedIndex === index ? (
-                          <Check className="h-3 w-3" />
+                          <Check className="h-4 w-4" />  // Increased from h-3 w-3 to h-4 w-4
                         ) : (
-                          <Copy className="h-3 w-3" />
+                          <Copy className="h-4 w-4" />  // Increased from h-3 w-3 to h-4 w-4
                         )}
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"  // Changed from 'icon' to 'sm'
                         onClick={() => regenerateResponse(index)}
-                        className="h-6 w-6"
+                        className="h-8 w-8"  // Increased from h-6 w-6 to h-8 w-8
                         disabled={regeneratingIndexes.has(index)}
                       >
-                        <RefreshCw className={`h-3 w-3 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  // Increased from h-3 w-3 to h-4 w-4
                       </Button>
                     </div>
                   )}
@@ -495,16 +495,16 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between px-4 h-16 border-b">
-        <h1 className="text-xl font-bold">AI Chatbot</h1>
+        <h1 className="text-2xl font-bold">AI Chatbot</h1>  // Increased from text-xl to text-2xl
         <div className="flex items-center">
           {activeTab === 'chat' && (
             <Button
               variant="outline"
-              size="sm"
-              className="mr-2"
+              size="default"  // Changed from 'sm' to 'default'
+              className="mr-2 text-base"  // Added text-base
               onClick={handleNewChat}
             >
-              <Plus size={16} className="mr-1" />
+              <Plus size={18} className="mr-2" />  // Increased from size={16} to size={18}
               New Chat
             </Button>
           )}
@@ -546,15 +546,15 @@ export default function Home() {
                 <Input
                   name="message"
                   placeholder="Type your message..."
-                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-xs [--tw-ring-offset-width:0px]"
+                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"  // Changed from text-xs to text-base
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   disabled={isLoading}
                   autoComplete="off"
                 />
-                <Button type="submit" disabled={isLoading} className="px-2 py-1 sm:px-3 sm:py-2 text-xs">
-                  <Send className="h-4 w-4" />
-                  <span className="sr-only">Send</span>
+                <Button type="submit" disabled={isLoading} className="px-4 py-2 text-base">  // Increased padding and font size
+                  <Send className="h-5 w-5 mr-2" />  // Increased from h-4 w-4 to h-5 w-5, added mr-2
+                  Send
                 </Button>
               </form>
             </footer>
