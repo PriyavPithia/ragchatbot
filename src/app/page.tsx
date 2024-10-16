@@ -131,7 +131,7 @@ export default function Home() {
     if (activeChat) {
       fetchMessages(activeChat);
     }
-  }, [activeChat]);
+  }, [activeChat, fetchMessages]);
 
   const handleSetActiveChat = async (chatId: string) => {
     setActiveChat(chatId);
@@ -288,7 +288,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, supabase]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
