@@ -6,28 +6,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Loader2, Chrome } from "lucide-react";
+import { useRouter } from 'next/router';
+import { useState } from 'react';
 
 export function AuthForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const router = useRouter();
 
   const handleEmailAuth = async (e: React.FormEvent, isSignUp: boolean) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // Handle successful sign-up (e.g., show confirmation message)
+        if (data.user) {
+          console.log('User signed up successfully:', data.user);
+          // Redirect to home page after successful sign-up
+          router.push('/');
+        } else {
+          setMessage('Please check your email to confirm your account.');
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         // Sign-in successful, the AuthProvider will update the user state
+        console.log('User signed in successfully');
+        router.push('/');
       }
     } catch (error) {
       console.error(`Error ${isSignUp ? 'signing up' : 'signing in'}:`, error);
-      // Handle error (e.g., show error message to user)
+      setMessage(`Error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }

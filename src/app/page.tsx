@@ -112,10 +112,17 @@ export default function Home() {
   }, [user, authLoading, router, fetchChats])
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 768;
+      console.log('Is mobile:', isMobile);
+      setIsMobile(isMobile);
+    }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
+  useEffect(() => {
     const storedActiveKB = localStorage.getItem('activeKnowledgeBase');
     if (storedActiveKB) {
       setActiveKnowledgeBase(storedActiveKB);

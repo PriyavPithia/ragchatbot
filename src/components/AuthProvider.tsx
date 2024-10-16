@@ -5,6 +5,8 @@ import { Session, User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
+const supabase = createClientComponentClient()
+
 type AuthContextType = {
   user: User | null
   session: Session | null
@@ -22,8 +24,6 @@ const AuthContext = createContext<AuthContextType>({
   setApiKey: () => {},
   isLoading: true
 })
-
-const supabase = createClientComponentClient()
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
@@ -73,7 +73,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           router.push('/')
         } else {
           console.log('No session, staying on current page')
-          // Remove the redirect to auth page here
         }
       } catch (error) {
         console.error('Error during auth initialization:', error)
@@ -83,6 +82,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     initializeAuth()
+
+    // Increase timeout to 30 seconds
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('Auth initialization timed out, redirecting to auth page')
+        setIsLoading(false)
+        router.push('/auth')
+      }
+    }, 30000) // 30 seconds timeout
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -105,15 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false)
       }
     )
-
-    // Increase timeout to 20 seconds
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.log('Auth initialization timed out, redirecting to auth page')
-        setIsLoading(false)
-        router.push('/auth')
-      }
-    }, 20000) // 20 seconds timeout
 
     return () => {
       subscription.unsubscribe()
