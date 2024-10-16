@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from 'react'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
 import { Send, Copy, RefreshCw, Check, Plus, ArrowDown } from 'lucide-react'
@@ -86,7 +86,7 @@ export default function Home() {
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop === clientHeight;
+      const isAtBottom = scrollHeight - scrollTop <= clientHeight + 100; // Add some threshold
       setShowScrollButton(!isAtBottom);
       setUserHasScrolled(!isAtBottom);
     }
@@ -114,6 +114,12 @@ export default function Home() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [scrollToBottom]);
+
+  useEffect(() => {
+    if (messages.length > 0 && !isNearBottom()) {
+      setShowScrollButton(true);
+    }
+  }, [messages, isNearBottom]);
 
   const fetchChats = useCallback(async () => {
     if (user) {
@@ -498,7 +504,65 @@ export default function Home() {
     }
   };
 
-  const renderTabContent = () => {
+  const renderMessage = useCallback((message: Message, index: number) => (
+    <div
+      key={message.id || index}
+      className={`mb-6 ${
+        message.role === 'user'
+          ? 'ml-auto'
+          : 'mr-auto w-full max-w-[80%]'
+      }`}
+    >
+      <div className={`rounded-lg ${
+        message.role === 'user'
+          ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
+          : 'bg-secondary text-secondary-foreground p-4'
+      }`}>
+        <ReactMarkdown
+          components={{
+            p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
+            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+        {message.role === 'bot' && (
+          <div className="flex justify-end space-x-2 mt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(message.content, index)}
+              className="h-10 w-10"
+            >
+              {copiedIndex === index ? (
+                <Check className="h-6 w-6" />
+              ) : (
+                <Copy className="h-6 w-6" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => regenerateResponse(index)}
+              className="h-10 w-10"
+              disabled={regeneratingIndexes.has(index)}
+            >
+              <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  ), [copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]);
+
+  const memoizedMessages = useMemo(() => 
+    messages.filter(message => message.chat_id === activeChat).map(renderMessage),
+    [messages, activeChat, renderMessage]
+  );
+
+  const renderTabContent = useCallback(() => {
     switch (activeTab) {
       case 'chat':
         return (
@@ -509,60 +573,7 @@ export default function Home() {
               onScroll={handleScroll}
             >
               <div className="flex flex-col px-4">
-                {messages
-                  .filter(message => message.chat_id === activeChat)
-                  .map((message, index) => (
-                    <div
-                      key={index}
-                      className={`mb-6 ${
-                        message.role === 'user'
-                          ? 'ml-auto'
-                          : 'mr-auto w-full max-w-[80%]'
-                      }`}
-                    >
-                      <div className={`rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
-                          : 'bg-secondary text-secondary-foreground p-4'
-                      }`}>
-                        <ReactMarkdown
-                          components={{
-                            p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-                            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-                            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                        {message.role === 'bot' && (
-                          <div className="flex justify-end space-x-2 mt-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(message.content, index)}
-                              className="h-10 w-10" // Increased size
-                            >
-                              {copiedIndex === index ? (
-                                <Check className="h-6 w-6" /> // Increased icon size
-                              ) : (
-                                <Copy className="h-6 w-6" /> // Increased icon size
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => regenerateResponse(index)}
-                              className="h-10 w-10" // Increased size
-                              disabled={regeneratingIndexes.has(index)}
-                            >
-                              <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                {memoizedMessages}
                 {isLoading && (
                   <div className="mb-4 p-3 rounded-lg bg-secondary text-secondary-foreground max-w-[80%] mr-auto">
                     <LoadingDots />
@@ -573,7 +584,7 @@ export default function Home() {
             </ScrollArea>
             {showScrollButton && (
               <Button
-                className="fixed bottom-24 right-4 rounded-full p-2 z-20"
+                className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
                 onClick={handleScrollButtonClick}
               >
                 <ArrowDown size={24} />
@@ -588,7 +599,7 @@ export default function Home() {
       default:
         return null;
     }
-  };
+  }, [activeTab, memoizedMessages, isLoading, showScrollButton, handleScrollButtonClick, handleScroll]);
 
   if (authLoading) {
     console.log('Auth is loading')
