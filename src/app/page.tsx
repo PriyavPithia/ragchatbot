@@ -505,7 +505,7 @@ export default function Home() {
                               className="h-10 w-10" // Increased size
                               disabled={regeneratingIndexes.has(index)}
                             >
-                              <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> // Increased icon size
+                              <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
                             </Button>
                           </div>
                         )}
