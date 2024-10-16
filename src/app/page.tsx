@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, RefreshCw, Check, Plus } from 'lucide-react'
+import { Send, Copy, RefreshCw, Check, Plus, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -54,24 +54,61 @@ export default function Home() {
 
   // Add this new state
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = useCallback((force = false) => {
-    if (messagesEndRef.current && scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current;
-      const isScrolledToBottom = scrollArea.scrollHeight - scrollArea.clientHeight <= scrollArea.scrollTop + 100;
-      
-      if (force || isScrolledToBottom) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-      }
+  const isNearBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
+      return scrollHeight - scrollTop - clientHeight < 100;
+    }
+    return false;
+  }, []);
+
+  const smartScroll = useCallback(() => {
+    if (!userHasScrolled && !isKeyboardVisible && isNearBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      setShowScrollButton(true);
+    }
+  }, [userHasScrolled, isKeyboardVisible, isNearBottom]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
+      const isAtBottom = scrollHeight - scrollTop === clientHeight;
+      setUserHasScrolled(!isAtBottom);
+      setShowScrollButton(!isAtBottom);
     }
   }, []);
 
-  useEffect(() => {
+  const scrollToBottom = useCallback((force: boolean = false) => {
+    if (force || (!userHasScrolled && !isKeyboardVisible)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setUserHasScrolled(false);
+      setShowScrollButton(false);
+    }
+  }, [userHasScrolled, isKeyboardVisible]);
+
+  // Create a new function to handle the button click
+  const handleScrollButtonClick = useCallback(() => {
     scrollToBottom(true);
-  }, [messages, scrollToBottom]);
+  }, [scrollToBottom]);
+
+  useEffect(() => {
+    smartScroll();
+  }, [messages, smartScroll]);
+
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (scrollArea) {
+      scrollArea.addEventListener('scroll', handleScroll);
+      return () => scrollArea.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -362,7 +399,7 @@ export default function Home() {
       setActiveTab('chat');
       setMessages([]); 
       setGeminiChat(null);
-      setTimeout(scrollToBottom, 100); // Add a small delay before scrolling
+      scrollToBottom(true);
     } catch (error) {
       console.error('Error creating new chat:', error);
       setMessage('Failed to create a new chat. Please try again.');
@@ -455,8 +492,11 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <div className="flex flex-col h-full">
-            <ScrollArea className="flex-grow overflow-y-auto pt-16 pb-20" ref={scrollAreaRef}>
+          <div className="flex flex-col h-full relative">
+            <ScrollArea 
+              className="flex-grow overflow-y-auto pt-16 pb-20" 
+              ref={scrollAreaRef}
+            >
               <div className="flex flex-col px-4">
                 {messages
                   .filter(message => message.chat_id === activeChat)
@@ -520,6 +560,14 @@ export default function Home() {
               </div>
               <div ref={messagesEndRef} />
             </ScrollArea>
+            {showScrollButton && (
+              <Button
+                className="absolute bottom-24 right-4 rounded-full p-2"
+                onClick={handleScrollButtonClick}
+              >
+                <ArrowDown size={24} />
+              </Button>
+            )}
           </div>
         );
       case 'knowledgebase':
