@@ -301,7 +301,124 @@ export default function Home() {
     }
   }, [inputMessage, activeChat, apiKey, generateResponse]);
 
-  // ... rest of the component code (handleNewChat, handleDeleteChat, copyToClipboard, regenerateResponse, handleRenameChat, renderTabContent)
+  const handleNewChat = async () => {
+    console.log('handleNewChat called in Home component');
+    if (!user) {
+      console.log('No user found, cannot create new chat');
+      return;
+    }
+
+    const newChatName = `New Chat ${chats.length + 1}`;
+    try {
+      console.log('Creating new chat:', newChatName);
+      const { data, error } = await supabase
+        .from('chats')
+        .insert({ user_id: user.id, name: newChatName })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('No data returned from insert operation');
+        throw new Error('No data returned from insert operation');
+      }
+
+      console.log('New chat created:', data);
+      setChats(prevChats => [data, ...prevChats]);
+      setActiveChat(data.id);
+      setActiveTab('chat');
+      setMessages([]); // Clear all messages when creating a new chat
+      setGeminiChat(null);
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+      setMessage('Failed to create a new chat. Please try again.');
+    }
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    try {
+      const { error } = await supabase
+        .from('chats')
+        .delete()
+        .eq('id', chatId);
+
+      if (error) throw error;
+
+      setChats((prevChats) => {
+        const updatedChats = prevChats.filter((chat) => chat.id !== chatId);
+        if (updatedChats.length === 0) {
+          setActiveChat(null);
+        } else if (activeChat === chatId) {
+          setActiveChat(updatedChats[0].id);
+          fetchMessages(updatedChats[0].id);
+        }
+        return updatedChats;
+      });
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+  };
+
+  const handleRenameChat = async (chatId: string, newName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .update({ name: newName })
+        .eq('id', chatId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.id === chatId ? { ...chat, name: newName } : chat
+        )
+      );
+    } catch (error) {
+      console.error('Error renaming chat:', error);
+    }
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'chat':
+        return (
+          <ScrollArea className="h-full p-4">
+            {messages
+              .filter(message => message.chat_id === activeChat)
+              .map((message, index) => (
+                <div
+                  key={index}
+                  className={`mb-6 rounded-lg ${
+                    message.role === 'user'
+                      ? 'bg-primary text-primary-foreground ml-auto'
+                      : 'chatbot-message mr-auto'
+                  } max-w-[80%]`}
+                >
+                  {/* ... (message content rendering) */}
+                </div>
+              ))}
+            {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
+              <div className="mb-4 p-3 rounded-lg chatbot-message max-w-[80%] mr-auto">
+                <LoadingDots />
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </ScrollArea>
+        );
+      case 'knowledgebase':
+        return <KnowledgeBase />;
+      case 'apikey':
+        return <ApiKey />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
