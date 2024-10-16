@@ -366,8 +366,6 @@ export default function Home() {
       
       // Add the bot's response to the chat
       setMessages(prev => [...prev, newBotMessage]);
-      // Scroll to bottom after adding AI's response
-      setTimeout(() => scrollToBottom(true), 100);
       
       console.log('Saving bot message to database...');
       const { error } = await supabase.from('messages').insert([newBotMessage]);
@@ -384,10 +382,10 @@ export default function Home() {
         ...prev, 
         { role: 'bot', content: 'Sorry, I encountered an error. Please check your API key and try again.', chat_id: currentChatId }
       ]);
-      // Scroll to bottom after adding error message
-      setTimeout(() => scrollToBottom(true), 100);
     } finally {
       setIsLoading(false);
+      // Scroll to bottom after everything is done, with a slight delay
+      setTimeout(() => scrollToBottom(true), 100);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -570,7 +568,7 @@ export default function Home() {
     [messages, activeChat, renderMessage]
   );
 
-  const renderTabContent = useCallback(() => {
+  const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'chat':
         return (
@@ -604,20 +602,17 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, isLoading, scrollToBottom]);
+  }, [activeTab, memoizedMessages, isLoading, scrollToBottom, scrollAreaRef, messagesEndRef]);
 
   if (authLoading) {
-    console.log('Auth is loading')
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
   if (!user) {
-    console.log('No user, redirecting to auth page')
     router.push('/auth')
     return null
   }
 
-  console.log('Rendering main component')
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between px-4 h-16 border-b fixed top-0 left-0 right-0 bg-background z-20">
@@ -664,7 +659,7 @@ export default function Home() {
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
           <main className="flex-1 overflow-hidden">
-            {renderTabContent()}
+            {renderTabContent}
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
             <footer className={`p-2 sm:p-4 border-t fixed bottom-0 ${!isMobile ? 'left-64' : 'left-0'} right-0 bg-background z-10`}>
