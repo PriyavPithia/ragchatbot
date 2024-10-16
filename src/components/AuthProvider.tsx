@@ -72,8 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('User authenticated, redirecting to home')
           router.push('/')
         } else {
-          console.log('No session, redirecting to auth page')
-          router.push('/auth')
+          console.log('No session, staying on current page')
+          // Remove the redirect to auth page here
         }
       } catch (error) {
         console.error('Error during auth initialization:', error)
