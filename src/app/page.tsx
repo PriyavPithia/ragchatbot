@@ -460,7 +460,8 @@ export default function Home() {
                         className="h-8 w-8"  
                         disabled={regeneratingIndexes.has(index)}
                       >
-                        <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  // Increased from h-3 w-3 to h-4 w-4
+                        <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                       
                       </Button>
                     </div>
                   )}
