@@ -31,62 +31,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter()
   const supabase = createClientComponentClient()
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      console.log('Initializing auth')
-      setIsLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('Session:', session)
-      if (session) {
-        setUser(session.user)
-        setSession(session)
-        await loadApiKey(session.user.id)
-        console.log('User authenticated')
-      } else {
-        console.log('No session')
-      }
-      setIsLoading(false)
-    }
-
-    initializeAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event)
-        setIsLoading(true)
-        setSession(session)
-        setUser(session?.user ?? null)
-        if (event === 'SIGNED_IN') {
-          if (session) {
-            await loadApiKey(session.user.id)
-            console.log('User signed in')
-            router.push('/')
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setApiKey('')
-          localStorage.removeItem('geminiApiKey')
-          console.log('User signed out')
-          router.push('/auth')
-        }
-        setIsLoading(false)
-      }
-    )
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-
   const loadApiKey = async (userId: string) => {
     try {
-      // First, try to get the API key from localStorage
       const storedApiKey = localStorage.getItem('geminiApiKey')
       if (storedApiKey) {
         setApiKey(storedApiKey)
         return
       }
 
-      // If not in localStorage, fetch from the database
       const { data, error } = await supabase
         .from('api_keys')
         .select('key')
@@ -103,6 +55,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error loading API key:', error)
     }
   }
+
+  useEffect(() => {
+    const initializeAuth = async () => {
+      console.log('Initializing auth')
+      setIsLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Session:', session)
+      if (session) {
+        setUser(session.user)
+        setSession(session)
+        await loadApiKey(session.user.id)
+        console.log('User authenticated, redirecting to home')
+        router.push('/')
+      } else {
+        console.log('No session, redirecting to auth page')
+        router.push('/auth')
+      }
+      setIsLoading(false)
+    }
+
+    initializeAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event)
+        setIsLoading(true)
+        setSession(session)
+        setUser(session?.user ?? null)
+        if (event === 'SIGNED_IN') {
+          if (session) {
+            await loadApiKey(session.user.id)
+            console.log('User signed in, redirecting to home')
+            router.push('/')
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setApiKey('')
+          localStorage.removeItem('geminiApiKey')
+          console.log('User signed out, redirecting to auth page')
+          router.push('/auth')
+        }
+        setIsLoading(false)
+      }
+    )
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [router, supabase.auth]);
 
   const signOut = async () => {
     setIsLoading(true)

@@ -80,6 +80,25 @@ export default function Home() {
     }
   }, [user, supabase]);
 
+  const fetchMessages = async (chatId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
+
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error in fetchMessages:', error);
+    }
+  };
+
   useEffect(() => {
     console.log('Home page effect', { authLoading, user })
     if (!authLoading) {
@@ -116,25 +135,6 @@ export default function Home() {
       fetchMessages(activeChat);
     }
   }, [activeChat]);
-
-  const fetchMessages = async (chatId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching messages:', error);
-        throw error;
-      }
-
-      setMessages(data || []);
-    } catch (error) {
-      console.error('Error in fetchMessages:', error);
-    }
-  };
 
   const handleSetActiveChat = async (chatId: string) => {
     setActiveChat(chatId);
@@ -486,16 +486,6 @@ export default function Home() {
         return null;
     }
   };
-
-  if (authLoading) {
-    console.log('Auth is loading')
-    return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
-  }
-
-  if (!user) {
-    console.log('No user, returning null')
-    return null
-  }
 
   console.log('Rendering main component', { user, chats })
   return (
