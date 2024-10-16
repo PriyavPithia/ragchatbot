@@ -60,18 +60,27 @@ export default function Home() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const isNearBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
+      return scrollHeight - scrollTop - clientHeight < 100;
+    }
+    return false;
+  }, []);
+
   const scrollToBottom = useCallback((force: boolean = false, smooth: boolean = true) => {
-    if (force) {
+    if (force || (!userHasScrolled && isNearBottom())) {
       messagesEndRef.current?.scrollIntoView({ 
         behavior: smooth ? 'smooth' : 'auto', 
         block: 'end' 
       });
       setShowScrollButton(false);
     }
-  }, []);
+  }, [userHasScrolled, isNearBottom]);
 
   const handleScrollButtonClick = useCallback(() => {
     scrollToBottom(true, true);
+    setUserHasScrolled(false);
   }, [scrollToBottom]);
 
   const handleScroll = useCallback(() => {
@@ -79,6 +88,7 @@ export default function Home() {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
       const isAtBottom = scrollHeight - scrollTop === clientHeight;
       setShowScrollButton(!isAtBottom);
+      setUserHasScrolled(!isAtBottom);
     }
   }, []);
 
