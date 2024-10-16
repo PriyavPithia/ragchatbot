@@ -355,6 +355,8 @@ export default function Home() {
     }
 
     setIsLoading(true);
+    // Scroll to bottom to show loading animation
+    setTimeout(() => scrollToBottom(false), 100);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -364,7 +366,8 @@ export default function Home() {
       
       // Add the bot's response to the chat
       setMessages(prev => [...prev, newBotMessage]);
-      scrollToBottom();  // Scroll to bottom after adding AI's response
+      // Scroll to bottom after adding AI's response
+      setTimeout(() => scrollToBottom(true), 100);
       
       console.log('Saving bot message to database...');
       const { error } = await supabase.from('messages').insert([newBotMessage]);
@@ -381,9 +384,10 @@ export default function Home() {
         ...prev, 
         { role: 'bot', content: 'Sorry, I encountered an error. Please check your API key and try again.', chat_id: currentChatId }
       ]);
+      // Scroll to bottom after adding error message
+      setTimeout(() => scrollToBottom(true), 100);
     } finally {
       setIsLoading(false);
-      scrollToBottom();  // Ensure we're scrolled to bottom after everything is done
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
