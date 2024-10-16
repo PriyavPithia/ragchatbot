@@ -14,17 +14,6 @@ export function KnowledgeBase() {
   const [message, setMessage] = useState('');
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      console.log('User authenticated:', user.id);
-      fetchUploadedFiles();
-      fetchActiveKnowledgeBase();
-    } else {
-      console.log('User not authenticated');
-      setMessage('Please log in to manage knowledge bases');
-    }
-  }, [user]);
-
   const fetchUploadedFiles = async () => {
     try {
       const { data, error } = await supabase
@@ -52,6 +41,17 @@ export function KnowledgeBase() {
       setActiveKnowledgeBase(storedActiveKB);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      console.log('User authenticated:', user.id);
+      fetchUploadedFiles();
+      fetchActiveKnowledgeBase();
+    } else {
+      console.log('User not authenticated');
+      setMessage('Please log in to manage knowledge bases');
+    }
+  }, [user]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
