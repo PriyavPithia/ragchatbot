@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, RefreshCw, Check } from 'lucide-react'
+import { Send, Copy, RefreshCw, Check, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -493,25 +493,21 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {!isMobile && (
-        <div className="w-64 border-r">
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            activeChat={activeChat}
-            setActiveChat={handleSetActiveChat}
-            chats={chats}
-            onDeleteChat={handleDeleteChat}
-            onNewChat={handleNewChat}
-            onRenameChat={handleRenameChat}
-            message={message}
-          />
-        </div>
-      )}
-      <div className="flex flex-col flex-1">
-        <header className="flex items-center justify-between px-4 h-16 border-b">
-          <h1 className="text-xl font-bold">AI Chatbot</h1>
+    <div className="flex flex-col h-screen bg-background">
+      <header className="flex items-center justify-between px-4 h-16 border-b">
+        <h1 className="text-xl font-bold">AI Chatbot</h1>
+        <div className="flex items-center">
+          {activeTab === 'chat' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mr-2"
+              onClick={handleNewChat}
+            >
+              <Plus size={16} className="mr-1" />
+              New Chat
+            </Button>
+          )}
           <MobileSidebar 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
@@ -522,29 +518,48 @@ export default function Home() {
             onNewChat={handleNewChat}
             onRenameChat={handleRenameChat}
           />
-        </header>
-        <main className="flex-1 overflow-hidden">
-          {renderTabContent()}
-        </main>
-        {activeTab === 'chat' && chats.length > 0 && activeChat && (
-          <footer className="p-2 sm:p-4 border-t">
-            <form onSubmit={handleSendMessage} className="flex space-x-2">
-              <Input
-                name="message"
-                placeholder="Type your message..."
-                className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-xs [--tw-ring-offset-width:0px]"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                disabled={isLoading}
-                autoComplete="off"
-              />
-              <Button type="submit" disabled={isLoading} className="px-2 py-1 sm:px-3 sm:py-2 text-xs">
-                <Send className="h-4 w-4" />
-                <span className="sr-only">Send</span>
-              </Button>
-            </form>
-          </footer>
+        </div>
+      </header>
+      <div className="flex flex-1 overflow-hidden">
+        {!isMobile && (
+          <div className="w-64 border-r">
+            <Sidebar
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              activeChat={activeChat}
+              setActiveChat={handleSetActiveChat}
+              chats={chats}
+              onDeleteChat={handleDeleteChat}
+              onNewChat={handleNewChat}
+              onRenameChat={handleRenameChat}
+              message={message}
+            />
+          </div>
         )}
+        <div className="flex flex-col flex-1">
+          <main className="flex-1 overflow-hidden">
+            {renderTabContent()}
+          </main>
+          {activeTab === 'chat' && chats.length > 0 && activeChat && (
+            <footer className="p-2 sm:p-4 border-t">
+              <form onSubmit={handleSendMessage} className="flex space-x-2">
+                <Input
+                  name="message"
+                  placeholder="Type your message..."
+                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-xs [--tw-ring-offset-width:0px]"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+                <Button type="submit" disabled={isLoading} className="px-2 py-1 sm:px-3 sm:py-2 text-xs">
+                  <Send className="h-4 w-4" />
+                  <span className="sr-only">Send</span>
+                </Button>
+              </form>
+            </footer>
+          )}
+        </div>
       </div>
     </div>
   );

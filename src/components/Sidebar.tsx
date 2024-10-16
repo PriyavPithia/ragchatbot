@@ -66,33 +66,51 @@ export function Sidebar({
   };
 
   return (
-    <div className="flex flex-col h-full pt-5">
-      <div className="flex flex-col space-y-1 px-2">
+    <div className="flex flex-col h-full pt-5 text-base">
+      <div className="px-4 py-2 mb-4">
+        <div className="flex items-center space-x-3 mb-4">
+          {user?.user_metadata?.avatar_url && (
+            <Image
+              src={user.user_metadata.avatar_url}
+              alt="User Avatar"
+              width={40}
+              height={40}
+              className="rounded-full"
+            />
+          )}
+          <div>
+            <p className="font-semibold">{user?.user_metadata?.full_name || user?.email}</p>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col space-y-2 px-2">
         <button
-          className={`flex items-center space-x-2 p-2 rounded-md text-xs ${
+          className={`flex items-center space-x-2 p-2 rounded-md ${
             activeTab === 'chat' ? 'bg-secondary' : 'hover:bg-secondary/50'
           }`}
           onClick={() => setActiveTab('chat')}
         >
-          <MessageSquare size={14} />
+          <MessageSquare size={18} />
           <span>AI Chatbot</span>
         </button>
         <button
-          className={`flex items-center space-x-2 p-2 rounded-md text-xs ${
+          className={`flex items-center space-x-2 p-2 rounded-md ${
             activeTab === 'knowledgebase' ? 'bg-secondary' : 'hover:bg-secondary/50'
           }`}
           onClick={() => setActiveTab('knowledgebase')}
         >
-          <Database size={14} />
+          <Database size={18} />
           <span>Knowledge Base</span>
         </button>
         <button
-          className={`flex items-center space-x-2 p-2 rounded-md text-xs ${
+          className={`flex items-center space-x-2 p-2 rounded-md ${
             activeTab === 'apikey' ? 'bg-secondary' : 'hover:bg-secondary/50'
           }`}
           onClick={() => setActiveTab('apikey')}
         >
-          <Key size={14} />
+          <Key size={18} />
           <span>API Key</span>
         </button>
       </div>
@@ -101,20 +119,20 @@ export function Sidebar({
         <>
           <Button
             variant="outline"
-            className="mt-3 mx-2 text-xs py-1.5 h-8"
+            className="mt-4 mx-2 py-2 h-10"
             onClick={handleNewChatClick}
           >
-            <Plus size={14} className="mr-1" />
+            <Plus size={18} className="mr-2" />
             New Chat
           </Button>
 
           {message && <p className="text-sm text-red-500 mt-2">{message}</p>}
 
-          <ScrollArea className="flex-grow mt-3">
+          <ScrollArea className="flex-grow mt-4">
             {chats.map((chat) => (
               <div 
                 key={chat.id} 
-                className={`flex items-center justify-between p-1.5 ${
+                className={`flex items-center justify-between p-2 ${
                   activeChat === chat.id ? 'bg-secondary' : 'hover:bg-secondary/50'
                 }`}
               >
@@ -125,41 +143,41 @@ export function Sidebar({
                     onChange={(e) => setEditingChatName(e.target.value)}
                     onBlur={() => handleRenameChat(chat.id)}
                     onKeyPress={(e) => e.key === 'Enter' && handleRenameChat(chat.id)}
-                    className="flex-grow mr-2 h-6 text-xs focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-transparent"
+                    className="flex-grow mr-2 h-8 text-sm focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-transparent"
                   />
                 ) : (
                   <>
                     <button
-                      className={`flex items-center space-x-2 text-xs w-full text-left ${
+                      className={`flex items-center space-x-2 w-full text-left ${
                         activeChat === chat.id ? 'font-bold' : ''
                       }`}
                       onClick={() => setActiveChat(chat.id)}
                     >
-                      <MessageSquare size={14} />
+                      <MessageSquare size={18} />
                       <span>{chat.name}</span>
                     </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                          <MoreVertical size={10} />
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical size={14} />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-28">
+                      <DropdownMenuContent className="w-32">
                         <DropdownMenuItem 
                           onClick={() => {
                             setEditingChatId(chat.id);
                             setEditingChatName(chat.name);
                           }}
-                          className="text-xs py-1 cursor-pointer"
+                          className="text-sm py-1.5 cursor-pointer"
                         >
-                          <Edit className="mr-2 h-3 w-3" />
+                          <Edit className="mr-2 h-4 w-4" />
                           <span>Rename</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => onDeleteChat(chat.id)}
-                          className="text-xs py-1 cursor-pointer"
+                          className="text-sm py-1.5 cursor-pointer"
                         >
-                          <Trash2 className="mr-2 h-3 w-3" />
+                          <Trash2 className="mr-2 h-4 w-4" />
                           <span>Delete</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -173,26 +191,14 @@ export function Sidebar({
       )}
 
       <div className="px-2 py-3 mt-auto">
-        <div className="flex items-center justify-between">
-          {user?.user_metadata?.avatar_url && (
-            <Image
-              src={user.user_metadata.avatar_url}
-              alt="User Avatar"
-              width={24}
-              height={24}
-              className="rounded-full mr-2"
-            />
-          )}
-          <span>{user?.user_metadata?.full_name || user?.email}</span>
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-xs py-2 h-9"
-            onClick={handleLogout}
-          >
-            <LogOut size={14} className="mr-2" />
-            Logout
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-sm py-2 h-10"
+          onClick={handleLogout}
+        >
+          <LogOut size={18} className="mr-2" />
+          Logout
+        </Button>
       </div>
     </div>
   );
