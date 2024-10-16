@@ -492,6 +492,11 @@ export default function Home() {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
+  if (!user) {
+    console.log('No user, returning null')
+    return null
+  }
+
   console.log('Rendering main component', { user, chats })
   return (
     <div className="flex h-screen bg-background">
