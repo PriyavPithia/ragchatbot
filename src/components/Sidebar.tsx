@@ -85,7 +85,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="flex-grow">
+      <div className="flex-grow overflow-hidden flex flex-col">
         <div className="flex flex-col space-y-2 px-2">
           <button
             className={`flex items-center space-x-2 p-2 rounded-md ${
@@ -120,7 +120,7 @@ export function Sidebar({
           <>
             <Button
               variant="outline"
-              className="mt-4 mx-2 py-2 h-10 w-full"
+              className="mt-4 mx-2 py-2 h-10"
               onClick={handleNewChatClick}
             >
               <Plus size={18} className="mr-2" />
