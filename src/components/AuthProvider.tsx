@@ -59,20 +59,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('Initializing auth')
       setIsLoading(true)
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        console.log('Session:', session)
         if (session) {
-          console.log('User authenticated:', session.user)
           setUser(session.user)
           setSession(session)
           await loadApiKey(session.user.id)
-          console.log('User authenticated, redirecting to home')
-          router.push('/')
-        } else {
-          console.log('No session, staying on current page')
         }
       } catch (error) {
         console.error('Error during auth initialization:', error)
@@ -83,40 +76,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth()
 
-    // Increase timeout to 30 seconds
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.log('Auth initialization timed out, redirecting to auth page')
-        setIsLoading(false)
-        router.push('/auth')
-      }
-    }, 30000) // 30 seconds timeout
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session)
-        setIsLoading(true)
-        setSession(session)
         setUser(session?.user ?? null)
+        setSession(session)
         if (event === 'SIGNED_IN') {
           if (session) {
             await loadApiKey(session.user.id)
-            console.log('User signed in, redirecting to home')
             router.push('/')
           }
         } else if (event === 'SIGNED_OUT') {
           setApiKey('')
           localStorage.removeItem('geminiApiKey')
-          console.log('User signed out, redirecting to auth page')
           router.push('/auth')
         }
-        setIsLoading(false)
       }
     )
 
     return () => {
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [router])
 

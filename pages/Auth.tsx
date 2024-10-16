@@ -18,10 +18,6 @@ export default function Auth() {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
 
-  if (user) {
-    return null // This will prevent any content from rendering before redirect
-  }
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <AuthForm />
