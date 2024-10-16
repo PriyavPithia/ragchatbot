@@ -60,11 +60,7 @@ export default function Home() {
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
-      const { scrollHeight, clientHeight, scrollTop } = messagesEndRef.current;
-      const isNearBottom = scrollHeight - clientHeight <= scrollTop + 100; // 100px threshold
-      if (isNearBottom) {
-        messagesEndRef.current.scrollTop = scrollHeight - clientHeight;
-      }
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, []);
 
@@ -354,7 +350,7 @@ export default function Home() {
       }
 
       console.log('Messages saved successfully', data);
-      scrollToBottom();
+      setTimeout(scrollToBottom, 100); // Add a small delay before scrolling
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
@@ -363,7 +359,7 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
-      scrollToBottom();
+      setTimeout(scrollToBottom, 100); // Add a small delay before scrolling
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -399,7 +395,7 @@ export default function Home() {
       setActiveTab('chat');
       setMessages([]); 
       setGeminiChat(null);
-      scrollToBottom();
+      setTimeout(scrollToBottom, 100); // Add a small delay before scrolling
     } catch (error) {
       console.error('Error creating new chat:', error);
       setMessage('Failed to create a new chat. Please try again.');
@@ -499,14 +495,16 @@ export default function Home() {
                 .map((message, index) => (
                   <div
                     key={index}
-                    className={`mb-6 rounded-lg ${
+                    className={`mb-6 ${
                       message.role === 'user'
-                        ? 'bg-primary text-primary-foreground ml-auto'
-                        : 'chatbot-message mr-auto'
-                    } max-w-[80%]`}
+                        ? 'ml-auto'
+                        : 'mr-auto'
+                    } w-full max-w-[80%]`}
                   >
-                    <div className={`markdown-content text-base p-4 pb-2 ${  
-                      message.role === 'user' ? 'text-primary-foreground pt-2' : ''
+                    <div className={`rounded-lg p-4 ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground'
                     }`}>
                       <ReactMarkdown
                         components={{
@@ -520,34 +518,34 @@ export default function Home() {
                       </ReactMarkdown>
                     </div>
                     {message.role === 'bot' && (
-                      <div className="flex justify-end space-x-2 p-2">
+                      <div className="flex justify-end space-x-2 mt-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => copyToClipboard(message.content, index)}
-                          className="h-10 w-10" // Increased size
+                          className="h-8 w-8"
                         >
                           {copiedIndex === index ? (
-                            <Check className="h-5 w-5" /> // Increased icon size
+                            <Check className="h-4 w-4" />
                           ) : (
-                            <Copy className="h-5 w-5" /> // Increased icon size
+                            <Copy className="h-4 w-4" />
                           )}
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => regenerateResponse(index)}
-                          className="h-10 w-10" // Increased size
+                          className="h-8 w-8"
                           disabled={regeneratingIndexes.has(index)}
                         >
-                          <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
+                          <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
                         </Button>
                       </div>
                     )}
                   </div>
                 ))}
               {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
-                <div className="mb-4 p-3 rounded-lg chatbot-message max-w-[80%] mr-auto">
+                <div className="mb-4 p-3 rounded-lg bg-secondary text-secondary-foreground max-w-[80%] mr-auto">
                   <LoadingDots />
                 </div>
               )}
@@ -624,8 +622,8 @@ export default function Home() {
             {renderTabContent()}
           </main>
           {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className="p-2 sm:p-4 border-t fixed bottom-0 left-0 right-0 bg-background z-10">
-              <form onSubmit={handleSendMessage} className="flex space-x-2 w-full">
+            <footer className={`p-2 sm:p-4 border-t fixed bottom-0 ${!isMobile ? 'left-64' : 'left-0'} right-0 bg-background z-10`}>
+              <form onSubmit={handleSendMessage} className="flex space-x-2 w-full max-w-3xl mx-auto">
                 <Input
                   name="message"
                   placeholder="Type your message..."
@@ -643,6 +641,7 @@ export default function Home() {
           )}
         </div>
       </div>
+      <div ref={messagesEndRef} />
     </div>
   );
 }
