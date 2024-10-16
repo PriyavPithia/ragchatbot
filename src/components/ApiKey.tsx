@@ -12,14 +12,6 @@ export function ApiKey() {
   const { user, apiKey: contextApiKey, setApiKey } = useAuth();
   const [existingKeyId, setExistingKeyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      console.log('Current user ID:', user.id);
-      setLocalApiKey(contextApiKey);
-      fetchApiKey();
-    }
-  }, [user, contextApiKey]);
-
   const fetchApiKey = async () => {
     if (!user) {
       setMessage('User not authenticated');
@@ -50,6 +42,14 @@ export function ApiKey() {
       setMessage(`Error fetching API Key: ${error.message}`);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      console.log('Current user ID:', user.id);
+      setLocalApiKey(contextApiKey);
+      fetchApiKey();
+    }
+  }, [user, contextApiKey]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

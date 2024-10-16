@@ -43,6 +43,7 @@ export function KnowledgeBase() {
   };
 
   useEffect(() => {
+    console.log('KnowledgeBase component effect', { user })
     if (user) {
       console.log('User authenticated:', user.id);
       fetchUploadedFiles();

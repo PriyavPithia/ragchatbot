@@ -183,6 +183,7 @@ export function Sidebar({
               className="rounded-full mr-2"
             />
           )}
+          <span>{user?.user_metadata?.full_name || user?.email}</span>
           <Button
             variant="ghost"
             className="w-full justify-start text-xs py-2 h-9"

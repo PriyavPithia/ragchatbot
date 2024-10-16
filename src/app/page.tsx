@@ -35,6 +35,7 @@ type Message = {
 
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
+  console.log('Home component rendered:', { user, authLoading, apiKey })
   const router = useRouter()
   const supabase = createClientComponentClient()
 
