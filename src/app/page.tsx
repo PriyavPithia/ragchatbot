@@ -84,15 +84,18 @@ export default function Home() {
     }
   }, []);
 
-  const scrollToBottom = useCallback((force: boolean = false) => {
+  const scrollToBottom = useCallback((force: boolean = false, smooth: boolean = true) => {
     if (force || (!userHasScrolled && isNearBottom())) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: smooth ? 'smooth' : 'auto', 
+        block: 'end' 
+      });
       setShowScrollButton(false);
     }
   }, [userHasScrolled, isNearBottom]);
 
   const handleScrollButtonClick = useCallback(() => {
-    scrollToBottom(true);
+    scrollToBottom(true, true);
     setUserHasScrolled(false);
   }, [scrollToBottom]);
 
@@ -211,9 +214,22 @@ export default function Home() {
     }
   }, [activeChat, fetchMessages]);
 
-  const handleSetActiveChat = async (chatId: string) => {
+  const handleSetActiveChat = useCallback(async (chatId: string) => {
     setActiveChat(chatId);
-  };
+    setMessages([]);  // Clear messages immediately to prevent flickering
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  }, [supabase]);
 
   const fetchApiKey = async () => {
     if (!user) return;
@@ -330,7 +346,7 @@ export default function Home() {
     
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    scrollToBottom(true);
+    scrollToBottom(true, false);  // Scroll immediately without smooth animation
 
     setIsLoading(true);
 
@@ -361,10 +377,10 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
-      scrollToBottom(true);
+      scrollToBottom(true, true);  // Scroll smoothly after response is received
     }
 
-    setUserHasScrolled(false); // Reset user scroll state when sending a new message
+    setUserHasScrolled(false);
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
   const handleNewChat = async () => {
@@ -399,7 +415,7 @@ export default function Home() {
       setActiveTab('chat');
       setMessages([]); 
       setGeminiChat(null);
-      scrollToBottom(true);
+      scrollToBottom(true, false);
     } catch (error) {
       console.error('Error creating new chat:', error);
       setMessage('Failed to create a new chat. Please try again.');
@@ -496,8 +512,9 @@ export default function Home() {
             <ScrollArea 
               className="flex-grow overflow-y-auto pt-16 pb-20" 
               ref={scrollAreaRef}
-              onWheel={() => setUserHasScrolled(true)} // Set userHasScrolled to true on wheel event
-              onTouchMove={() => setUserHasScrolled(true)} // Set userHasScrolled to true on touch move (for mobile)
+              onWheel={() => setUserHasScrolled(true)}
+              onTouchMove={() => setUserHasScrolled(true)}
+              onScroll={handleScroll}  // Add this line
             >
               <div className="flex flex-col px-4">
                 {messages
