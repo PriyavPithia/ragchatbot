@@ -413,66 +413,87 @@ export default function Home() {
     switch (activeTab) {
       case 'chat':
         return (
-          <ScrollArea className="h-[90vh] p-4"> {/* Changed to 90vh for mobile */}
-            {messages
-              .filter(message => message.chat_id === activeChat)
-              .map((message, index) => (
-                <div
-                  key={index}
-                  className={`mb-6 rounded-lg ${
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground ml-auto'
-                      : 'chatbot-message mr-auto'
-                  } max-w-[80%]`}
-                >
-                  <div className={`markdown-content text-base p-4 pb-2 ${  
-                    message.role === 'user' ? 'text-primary-foreground pt-2' : ''
-                  }`}>
-                    <ReactMarkdown
-                      components={{
-                        p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                        ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-                        ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-                        li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                  {message.role === 'bot' && (
-                    <div className="flex justify-end space-x-2 p-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(message.content, index)}
-                        className="h-10 w-10" // Increased size
+          <div className="flex flex-col h-full">
+            <ScrollArea className="flex-grow overflow-y-auto px-4">
+              {messages
+                .filter(message => message.chat_id === activeChat)
+                .map((message, index) => (
+                  <div
+                    key={index}
+                    className={`mb-6 rounded-lg ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground ml-auto'
+                        : 'chatbot-message mr-auto'
+                    } max-w-[80%]`}
+                  >
+                    <div className={`markdown-content text-base p-4 pb-2 ${  
+                      message.role === 'user' ? 'text-primary-foreground pt-2' : ''
+                    }`}>
+                      <ReactMarkdown
+                        components={{
+                          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+                          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
+                          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                        }}
                       >
-                        {copiedIndex === index ? (
-                          <Check className="h-5 w-5" /> // Increased icon size
-                        ) : (
-                          <Copy className="h-5 w-5" /> // Increased icon size
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => regenerateResponse(index)}
-                        className="h-10 w-10" // Increased size
-                        disabled={regeneratingIndexes.has(index)}
-                      >
-                        <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
-                      </Button>
+                        {message.content}
+                      </ReactMarkdown>
                     </div>
-                  )}
+                    {message.role === 'bot' && (
+                      <div className="flex justify-end space-x-2 p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(message.content, index)}
+                          className="h-10 w-10" // Increased size
+                        >
+                          {copiedIndex === index ? (
+                            <Check className="h-5 w-5" /> // Increased icon size
+                          ) : (
+                            <Copy className="h-5 w-5" /> // Increased icon size
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => regenerateResponse(index)}
+                          className="h-10 w-10" // Increased size
+                          disabled={regeneratingIndexes.has(index)}
+                        >
+                          <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
+                <div className="mb-4 p-3 rounded-lg chatbot-message max-w-[80%] mr-auto">
+                  <LoadingDots />
                 </div>
-              ))}
-            {isLoading && messages.filter(message => message.chat_id === activeChat).length > 0 && (
-              <div className="mb-4 p-3 rounded-lg chatbot-message max-w-[80%] mr-auto">
-                <LoadingDots />
-              </div>
+              )}
+              <div ref={messagesEndRef} />
+            </ScrollArea>
+            {chats.length > 0 && activeChat && (
+              <footer className="p-2 sm:p-4 border-t mt-auto">
+                <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <Input
+                    name="message"
+                    placeholder="Type your message..."
+                    className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    disabled={isLoading}
+                    autoComplete="off"
+                  />
+                  <Button type="submit" disabled={isLoading} className="px-4 py-2 text-base">
+                    <Send className="h-5 w-5 mr-2" />
+                    Send
+                  </Button>
+                </form>
+              </footer>
             )}
-            <div ref={messagesEndRef} />
-          </ScrollArea>
+          </div>
         );
       case 'knowledgebase':
         return <KnowledgeBase />;
@@ -535,29 +556,10 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex flex-col flex-1">
+        <div className="flex-1 overflow-hidden flex flex-col">
           <main className="flex-1 overflow-hidden">
             {renderTabContent()}
           </main>
-          {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className="p-2 sm:p-4 border-t">
-              <form onSubmit={handleSendMessage} className="flex space-x-2">
-                <Input
-                  name="message"
-                  placeholder="Type your message..."
-                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="off"
-                />
-                <Button type="submit" disabled={isLoading} className="px-4 py-2 text-base">
-                  <Send className="h-5 w-5 mr-2" />
-                  Send
-                </Button>
-              </form>
-            </footer>
-          )}
         </div>
       </div>
     </div>
