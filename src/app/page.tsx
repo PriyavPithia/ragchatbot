@@ -25,7 +25,6 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 const MODEL_NAME = "gemini-1.0-pro";
 
-// Define a type for the message
 type Message = {
   role: string;
   content: string;
