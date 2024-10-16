@@ -336,10 +336,17 @@ export default function Home() {
     const currentChatId = activeChat;
     const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: currentChatId };
     
-    // Immediately add the user's message to the chat
+    // Immediately add the user's message to the chat and clear the input
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
     scrollToBottom(false);  // Scroll to bottom immediately after adding user's message
+
+    // Save the user's message to the database immediately
+    try {
+      await supabase.from('messages').insert([newUserMessage]);
+    } catch (error) {
+      console.error('Error saving user message to database:', error);
+    }
 
     setIsLoading(true);
 
@@ -353,17 +360,15 @@ export default function Home() {
       setMessages(prev => [...prev, newBotMessage]);
       scrollToBottom();  // Scroll to bottom after adding AI's response
       
-      console.log('Saving messages to database...');
-      const { data, error } = await supabase
-        .from('messages')
-        .insert([newUserMessage, newBotMessage]);
+      console.log('Saving bot message to database...');
+      const { error } = await supabase.from('messages').insert([newBotMessage]);
 
       if (error) {
-        console.error('Error saving messages to database:', error);
+        console.error('Error saving bot message to database:', error);
         throw error;
       }
 
-      console.log('Messages saved successfully', data);
+      console.log('Bot message saved successfully');
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
