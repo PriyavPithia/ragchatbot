@@ -414,7 +414,7 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <ScrollArea className="flex-grow overflow-y-auto px-4">
+            <ScrollArea className="flex-grow overflow-y-auto px-4 pb-16"> {/* Added pb-16 for mobile input spacing */}
               {messages
                 .filter(message => message.chat_id === activeChat)
                 .map((message, index) => (
@@ -474,25 +474,6 @@ export default function Home() {
               )}
               <div ref={messagesEndRef} />
             </ScrollArea>
-            {chats.length > 0 && activeChat && (
-              <footer className="p-2 sm:p-4 border-t mt-auto">
-                <form onSubmit={handleSendMessage} className="flex space-x-2">
-                  <Input
-                    name="message"
-                    placeholder="Type your message..."
-                    className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="off"
-                  />
-                  <Button type="submit" disabled={isLoading} className="px-4 py-2 text-base">
-                    <Send className="h-5 w-5 mr-2" />
-                    Send
-                  </Button>
-                </form>
-              </footer>
-            )}
           </div>
         );
       case 'knowledgebase':
@@ -514,7 +495,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <header className="flex items-center justify-between px-4 h-16 border-b">
+      <header className="flex items-center justify-between px-4 h-16 border-b sticky top-0 bg-background z-10">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && (
@@ -556,10 +537,28 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden flex flex-col relative"> {/* Added relative positioning */}
           <main className="flex-1 overflow-hidden">
             {renderTabContent()}
           </main>
+          {activeTab === 'chat' && chats.length > 0 && activeChat && (
+            <footer className="p-2 sm:p-4 border-t sticky bottom-0 bg-background z-10"> {/* Made footer sticky */}
+              <form onSubmit={handleSendMessage} className="flex space-x-2">
+                <Input
+                  name="message"
+                  placeholder="Type your message..."
+                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+                <Button type="submit" disabled={isLoading} className="px-3 py-2">
+                  <Send className="h-5 w-5" />
+                </Button>
+              </form>
+            </footer>
+          )}
         </div>
       </div>
     </div>
