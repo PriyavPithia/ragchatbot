@@ -64,22 +64,22 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
             variant="ghost"
             size="sm"
             onClick={() => copyToClipboard(message.content, index)}
-            className="h-8 w-8"
+            className="h-10 w-10"  // Increased size
           >
             {copiedIndex === index ? (
-              <Check className="h-4 w-4" />
+              <Check className="h-5 w-5" />  // Increased icon size
             ) : (
-              <Copy className="h-4 w-4" />
+              <Copy className="h-5 w-5" />  // Increased icon size
             )}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => regenerateResponse(index)}
-            className="h-8 w-8"
+            className="h-10 w-10"  // Increased size
             disabled={regeneratingIndexes.has(index)}
           >
-            <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  // Increased icon size
           </Button>
         </div>
       )}
@@ -579,7 +579,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-20 fixed top-0 left-0 right-0">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 fixed top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && !isMobile && (
@@ -605,7 +605,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16 pb-16"> {/* Add padding top and bottom */}
+      <div className="flex flex-1 overflow-hidden pt-16 pb-20"> {/* Increased bottom padding */}
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
