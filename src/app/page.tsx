@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, Check, Plus, ArrowDown, LogOut } from 'lucide-react'
+import { Send, Copy, Check, ArrowDown, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MobileSidebar } from '../components/MobileSidebar'
@@ -724,12 +724,11 @@ export default function Home() {
         <div className="flex items-center">
           <Button
             variant="outline"
-            size="default"
-            className="mr-2 text-base"
+            size="icon"
+            className="mr-2"
             onClick={handleNewChat}
           >
-            <Plus size={18} className="mr-2" />
-            New Chat
+            <ArrowDown size={18} />
           </Button>
           <MobileSidebar 
             activeTab={activeTab} 
