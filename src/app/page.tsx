@@ -79,7 +79,7 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
             className="h-10 w-10"  // Increased size
             disabled={regeneratingIndexes.has(index)}
           >
-            <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  // Increased icon size
+            <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  
           </Button>
         </div>
       )}
