@@ -29,26 +29,29 @@ type Message = {
 // Define ChatSession type or use any if structure is unknown
 type ChatSession = any;
 
-const MemoizedMessage = memo(({ message }: { message: Message }) => (
-  <div className={`mb-6 ${message.role === 'user' ? 'ml-auto text-right' : 'mr-auto'}`}>
-    <div className={`rounded-lg p-4 ${
-      message.role === 'user'
-        ? 'bg-primary text-primary-foreground ml-auto inline-block max-w-[80%]'
-        : 'bg-secondary text-secondary-foreground w-full max-w-[80%]'
-    }`}>
-      <ReactMarkdown
-        components={{
-          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-        }}
-      >
-        {message.content}
-      </ReactMarkdown>
+const MemoizedMessage = memo(({ message }: { message: Message }) => {
+  console.log('Rendering message:', message.id);
+  return (
+    <div className={`mb-4 ${message.role === 'user' ? 'ml-auto text-right' : 'mr-auto'}`}>
+      <div className={`rounded-lg ${
+        message.role === 'user'
+          ? 'bg-primary text-primary-foreground ml-auto inline-block max-w-[80%] py-2 px-3'
+          : 'bg-secondary text-secondary-foreground w-full max-w-[80%] p-4'
+      }`}>
+        <ReactMarkdown
+          components={{
+            p: ({ node, ...props }) => <p className="mb-1 text-sm" {...props} />,
+            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 text-sm" {...props} />,
+            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 text-sm" {...props} />,
+            li: ({ node, ...props }) => <li className="mb-1 text-sm" {...props} />,
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      </div>
     </div>
-  </div>
-));
+  );
+}, (prevProps, nextProps) => prevProps.message.id === nextProps.message.id);
 
 MemoizedMessage.displayName = 'MemoizedMessage';
 
@@ -73,15 +76,21 @@ export default function Home() {
   const [message, setMessage] = useState('')
   const [showScrollButton, setShowScrollButton] = useState(false); // Define state for scroll button
   const [activeKnowledgeBaseContent, setActiveKnowledgeBaseContent] = useState<string | null>(null);
+  const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
 
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (lastMessageRef.current) {
-      lastMessageRef.current.scrollIntoView({
+    if (scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current;
+      const scrollHeight = scrollElement.scrollHeight;
+      const height = scrollElement.clientHeight;
+      const maxScrollTop = scrollHeight - height;
+      
+      scrollElement.scrollTo({
+        top: maxScrollTop,
         behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
       });
     }
   }, []);
@@ -191,22 +200,36 @@ export default function Home() {
   }, [activeChat, fetchMessages]);
 
   const handleSetActiveChat = useCallback(async (chatId: string) => {
+    console.log('Setting active chat:', chatId);
     setActiveChat(chatId);
-    setIsLoading(true);
-    setMessages([]);
+    setLoadingChats(prev => new Set(prev).add(chatId));
+    setMessages([]); // Clear messages immediately
+
     try {
+      console.log('Fetching messages for chat:', chatId);
+      const startTime = performance.now();
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
 
+      const endTime = performance.now();
+      console.log(`Fetched messages in ${endTime - startTime}ms`);
+
       if (error) throw error;
+      
+      console.log('Number of messages fetched:', data?.length);
       setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
-      setIsLoading(false);
+      setLoadingChats(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(chatId);
+        return newSet;
+      });
+      console.log('Finished setting active chat');
       setTimeout(() => scrollToBottom(false), 100);
     }
   }, [supabase, scrollToBottom]);
@@ -301,7 +324,9 @@ export default function Home() {
     
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    setTimeout(() => scrollToBottom(true), 100);
+    
+    // Scroll to bottom after adding user's message
+    setTimeout(() => scrollToBottom(false), 50);
 
     try {
       await supabase.from('messages').insert([newUserMessage]);
@@ -331,7 +356,8 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
-      setTimeout(() => scrollToBottom(true), 100);
+      // Scroll to bottom after adding bot's message
+      setTimeout(() => scrollToBottom(true), 50);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom, activeKnowledgeBaseContent]);
 
@@ -456,31 +482,27 @@ export default function Home() {
     }
   };
 
-  const memoizedMessages = useMemo(() => 
-    messages
+  const memoizedMessages = useMemo(() => {
+    console.log('Recalculating memoizedMessages');
+    return messages
       .filter(message => message.chat_id === activeChat)
-      .map((message, index, array) => (
-        <div
-          key={message.id || index}
-          ref={index === array.length - 1 ? lastMessageRef : null}
-        >
-          <MemoizedMessage message={message} />
-        </div>
-      )),
-    [messages, activeChat]
-  );
+      .map((message) => (
+        <MemoizedMessage key={message.id || message.content} message={message} />
+      ));
+  }, [messages, activeChat]);
 
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <div className="flex-grow overflow-y-auto px-8 py-8 pb-24" ref={scrollAreaRef}>
-              {memoizedMessages}
-              {isLoading && (
-                <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto">
+            <div className={`flex-grow overflow-y-auto hide-scrollbar py-4 pb-2 ${isMobile ? 'px-2' : 'px-4'}`} ref={scrollAreaRef}>
+              {loadingChats.has(activeChat || '') ? (
+                <div className="flex justify-center items-center h-full">
                   <LoadingDots />
                 </div>
+              ) : (
+                memoizedMessages
               )}
             </div>
           </div>
@@ -492,7 +514,7 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, isLoading]);
+  }, [activeTab, memoizedMessages, loadingChats, activeChat, isMobile]);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -504,8 +526,8 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <header className="flex items-center justify-between px-4 h-16 border-b fixed top-0 left-0 right-0 bg-background z-20">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-20">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && !isMobile && (
@@ -531,7 +553,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16 pb-16"> {/* Added pb-16 to account for the input field */}
+      <div className="flex flex-1 overflow-hidden">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -547,31 +569,30 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 overflow-hidden flex flex-col relative">
+        <div className="flex-1 overflow-hidden flex flex-col">
           <main className="flex-1 overflow-hidden">
             {renderTabContent}
           </main>
+          {activeTab === 'chat' && (
+            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} ${!isMobile ? 'ml-64' : ''}`}>
+              <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
+                <Input
+                  name="message"
+                  placeholder="Type your message..."
+                  className="flex-grow focus:ring-2 focus:ring-blue-500 text-base"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+                <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
+                  <Send className="h-5 w-5" />
+                </Button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
-      {activeTab === 'chat' && (
-        <div className="border-t bg-white py-2 fixed bottom-0 left-0 right-0 z-50">
-          <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto px-2">
-            <Input
-              name="message"
-              placeholder="Type your message..."
-              className="flex-grow focus:ring-2 focus:ring-blue-500 text-lg"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              disabled={isLoading}
-              autoComplete="off"
-              style={{ fontSize: '16px' }} // Prevent zoom on mobile
-            />
-            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
-              <Send className="h-5 w-5" />
-            </Button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }
