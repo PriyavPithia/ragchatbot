@@ -57,32 +57,32 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
         >
           {message.content}
         </ReactMarkdown>
+        {message.role === 'bot' && (
+          <div className="flex justify-end space-x-2 mt-2 border-t pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(message.content, index)}
+              className="h-8 w-8"
+            >
+              {copiedIndex === index ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => regenerateResponse(index)}
+              className="h-8 w-8"
+              disabled={regeneratingIndexes.has(index)}
+            >
+              <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        )}
       </div>
-      {message.role === 'bot' && (
-        <div className="flex justify-start space-x-2 mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(message.content, index)}
-            className="h-10 w-10"  // Increased size
-          >
-            {copiedIndex === index ? (
-              <Check className="h-5 w-5" />  // Increased icon size
-            ) : (
-              <Copy className="h-5 w-5" />  // Increased icon size
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => regenerateResponse(index)}
-            className="h-10 w-10"  // Increased size
-            disabled={regeneratingIndexes.has(index)}
-          >
-            <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />  
-          </Button>
-        </div>
-      )}
       {isLast && <div ref={lastMessageRef} style={{ height: '1px' }} />}
     </div>
   );
@@ -122,18 +122,18 @@ export default function Home() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (lastMessageRef.current) {
-      lastMessageRef.current.scrollIntoView({
+    if (scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current;
+      const scrollHeight = scrollElement.scrollHeight;
+      const height = scrollElement.clientHeight;
+      const maxScrollTop = scrollHeight - height;
+      
+      scrollElement.scrollTo({
+        top: maxScrollTop,
         behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
       });
     }
   }, []);
-
-  // Add this new effect to scroll when messages change
-  useEffect(() => {
-    scrollToBottom(false);
-  }, [messages, scrollToBottom]);
 
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
@@ -376,6 +376,8 @@ export default function Home() {
     }
 
     setIsLoading(true);
+    // Scroll to show loading dots
+    setTimeout(() => scrollToBottom(true), 50);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -400,7 +402,7 @@ export default function Home() {
       // Scroll to bottom after adding bot's message
       setTimeout(() => scrollToBottom(true), 50);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom, activeKnowledgeBaseContent]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
@@ -559,7 +561,7 @@ export default function Home() {
                       <LoadingDots />
                     </div>
                   )}
-                  <div ref={lastMessageRef} style={{ height: '1px' }} />
+                  <div style={{ height: '1px' }} /> {/* Removed lastMessageRef */}
                   {/* Add extra padding at the bottom */}
                   <div className="h-32" /> {/* Adjust this value as needed */}
                 </>
