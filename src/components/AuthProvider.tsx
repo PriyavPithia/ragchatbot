@@ -67,7 +67,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [router])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setApiKey('');
+    localStorage.removeItem('geminiApiKey');
+    router.push('/auth');
   }
 
   return (

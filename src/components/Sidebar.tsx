@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from 'next/navigation';
 
 type SidebarProps = {
   activeTab: string;
@@ -39,6 +40,7 @@ export function Sidebar({
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingChatName, setEditingChatName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (editingChatId && inputRef.current) {
@@ -53,11 +55,8 @@ export function Sidebar({
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+    await signOut();
+    router.push('/auth');
   };
 
   const handleNewChatClick = () => {
