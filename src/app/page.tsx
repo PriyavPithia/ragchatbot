@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, RefreshCw, Check, Plus } from 'lucide-react'
+import { Send, Copy, RefreshCw, Check, Plus, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MobileSidebar } from '../components/MobileSidebar'
@@ -29,17 +29,15 @@ type Message = {
 // Define ChatSession type or use any if structure is unknown
 type ChatSession = any;
 
-const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes }: {
+const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToClipboard, copiedIndex }: {
   message: Message;
   isLast: boolean;
   lastMessageRef: React.RefObject<HTMLDivElement>;
   index: number;
   copyToClipboard: (content: string, index: number) => void;
-  regenerateResponse: (index: number) => Promise<void>;
   copiedIndex: number | null;
-  regeneratingIndexes: Set<number>;
 }) => {
-  console.log('Rendering message:', message.id);
+  // Remove console.log to reduce noise
   return (
     <div className={`mb-4 ${message.role === 'user' ? 'ml-auto text-right' : 'mr-auto'}`}>
       <div className={`rounded-lg ${
@@ -71,15 +69,6 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
                 <Copy className="h-5 w-5" />
               )}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => regenerateResponse(index)}
-              className="h-9 w-9"
-              disabled={regeneratingIndexes.has(index)}
-            >
-              <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
-            </Button>
           </div>
         )}
       </div>
@@ -89,8 +78,7 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
 }, (prevProps, nextProps) => 
   prevProps.message.id === nextProps.message.id && 
   prevProps.isLast === nextProps.isLast &&
-  prevProps.copiedIndex === nextProps.copiedIndex &&
-  prevProps.regeneratingIndexes === nextProps.regeneratingIndexes
+  prevProps.copiedIndex === nextProps.copiedIndex
 );
 
 MemoizedMessage.displayName = 'MemoizedMessage';
@@ -108,7 +96,6 @@ export default function Home() {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
-  const [regeneratingIndexes, setRegeneratingIndexes] = useState<Set<number>>(new Set())
   const [activeChat, setActiveChat] = useState<string | null>(null)
   const [activeKnowledgeBase, setActiveKnowledgeBase] = useState<string | null>(null)
   const [chats, setChats] = useState<{ id: string; name: string }[]>([])
@@ -354,7 +341,7 @@ export default function Home() {
 
   // Add this new effect to scroll when messages change
   useEffect(() => {
-    if (messages.length > 0 && messages[messages.length - 1].role === 'bot') {
+    if (messages.length > 0) {
       scrollToBottom(true);
     }
   }, [messages, scrollToBottom]);
@@ -404,6 +391,8 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
+      // Scroll to bottom after adding bot's message
+      scrollToBottom(true);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -491,60 +480,26 @@ export default function Home() {
     }
   };
 
-  const copyToClipboard = (content: string, index: number) => {
+  const copyToClipboard = useCallback((content: string, index: number) => {
     navigator.clipboard.writeText(content);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
-  };
-
-  const regenerateResponse = async (index: number) => {
-    if (!activeChat) return;
-    setRegeneratingIndexes(prev => new Set(prev).add(index));
-    const userMessage = messages[index - 1].content;
-
-    try {
-      const response = await generateResponse(userMessage);
-      setMessages(prev => {
-        const newMessages = [...prev];
-        newMessages[index] = { ...newMessages[index], content: response, id: newMessages[index].id };
-        return newMessages;
-      });
-
-
-      if (messages[index].id) {
-        await supabase.from('messages').update({
-          content: response
-        }).eq('chat_id', activeChat).eq('id', messages[index].id);
-      }
-
-    } catch (error) {
-      console.error('Error regenerating response:', error);
-    } finally {
-      setRegeneratingIndexes(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(index);
-        return newSet;
-      });
-    }
-  };
+  }, []);
 
   const memoizedMessages = useMemo(() => {
-    console.log('Recalculating memoizedMessages');
     const filteredMessages = messages.filter(message => message.chat_id === activeChat);
     return filteredMessages.map((message, index) => (
       <MemoizedMessage 
-        key={message.id || message.content} 
+        key={message.id || `${message.chat_id}-${index}`}
         message={message} 
         isLast={index === filteredMessages.length - 1}
         lastMessageRef={lastMessageRef}
         index={index}
         copyToClipboard={copyToClipboard}
-        regenerateResponse={regenerateResponse}
         copiedIndex={copiedIndex}
-        regeneratingIndexes={regeneratingIndexes}
       />
     ));
-  }, [messages, activeChat, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]);
+  }, [messages, activeChat, lastMessageRef, copyToClipboard, copiedIndex]);
 
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
@@ -638,6 +593,14 @@ export default function Home() {
           <main className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
             {renderTabContent}
           </main>
+          {showScrollButton && (
+            <Button
+              className="fixed bottom-20 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg"
+              onClick={() => scrollToBottom(true)}
+            >
+              <ArrowDown size={24} />
+            </Button>
+          )}
         </div>
       </div>
       {activeTab === 'chat' && (
