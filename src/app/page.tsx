@@ -82,40 +82,25 @@ export default function Home() {
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [autoScroll, setAutoScroll] = useState(true);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const isNearBottom = useCallback(() => {
-    if (scrollAreaRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      return scrollHeight - scrollTop - clientHeight < 100;
-    }
-    return false;
-  }, []);
-
-  const scrollToBottom = useCallback((force: boolean = false) => {
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
     if (messagesEndRef.current) {
-      const scrollContainer = messagesEndRef.current.parentElement;
-      if (scrollContainer) {
-        if (force) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight;
-        } else {
-          const { scrollHeight, clientHeight, scrollTop } = scrollContainer;
-          const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-          if (isNearBottom) {
-            scrollContainer.scrollTop = scrollHeight - clientHeight;
-          }
-        }
-      }
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
     }
   }, []);
 
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop <= clientHeight + 100; // Add some threshold
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 1;
+      setAutoScroll(isAtBottom);
       setShowScrollButton(!isAtBottom);
-      setUserHasScrolled(!isAtBottom);
     }
   }, []);
 
@@ -128,25 +113,10 @@ export default function Home() {
   }, [handleScroll]);
 
   useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== 'undefined') {
-        const isKeyboard = window.innerHeight < window.outerHeight;
-        setIsKeyboardVisible(isKeyboard);
-        if (isKeyboard) {
-          setTimeout(scrollToBottom, 100); // Delay scroll when keyboard appears
-        }
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [scrollToBottom]);
-
-  useEffect(() => {
-    if (messages.length > 0 && !isNearBottom()) {
-      setShowScrollButton(true);
+    if (autoScroll) {
+      scrollToBottom(false);
     }
-  }, [messages, isNearBottom]);
+  }, [messages, autoScroll, scrollToBottom]);
 
   const fetchChats = useCallback(async () => {
     if (user) {
@@ -424,6 +394,9 @@ export default function Home() {
       // Scroll to bottom after everything is done, with a slight delay
       setTimeout(() => scrollToBottom(true), 100);
     }
+
+    setAutoScroll(true);
+    scrollToBottom(false);
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
   const handleNewChat = async () => {
@@ -561,7 +534,7 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <ScrollArea className="flex-grow px-8 py-8" ref={scrollAreaRef}>
+            <div className="flex-grow overflow-y-auto px-8 py-8 pb-24" ref={scrollAreaRef}>
               {memoizedMessages}
               {isLoading && (
                 <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto">
@@ -569,23 +542,18 @@ export default function Home() {
                 </div>
               )}
               <div ref={messagesEndRef} />
-            </ScrollArea>
-            <div className="border-t bg-white py-4 px-8">
-              <form onSubmit={handleSendMessage} className="flex space-x-4 max-w-3xl mx-auto">
-                <Input
-                  name="message"
-                  placeholder="Type your message..."
-                  className="flex-grow focus:ring-2 focus:ring-blue-500"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="off"
-                />
-                <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
-                  <Send className="h-5 w-5" />
-                </Button>
-              </form>
             </div>
+            {showScrollButton && (
+              <Button
+                className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
+                onClick={() => {
+                  setAutoScroll(true);
+                  scrollToBottom();
+                }}
+              >
+                <ArrowDown size={24} />
+              </Button>
+            )}
           </div>
         );
       case 'knowledgebase':
@@ -595,7 +563,7 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, isLoading, inputMessage, handleSendMessage]);
+  }, [activeTab, memoizedMessages, isLoading, showScrollButton, scrollToBottom]);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -634,7 +602,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16">
+      <div className="flex flex-1 overflow-hidden pt-16 pb-16"> {/* Added pb-16 to account for the input field */}
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -656,6 +624,24 @@ export default function Home() {
           </main>
         </div>
       </div>
+      {activeTab === 'chat' && (
+        <div className="border-t bg-white py-4 px-8 fixed bottom-0 left-0 right-0 z-20">
+          <form onSubmit={handleSendMessage} className="flex space-x-4 max-w-3xl mx-auto">
+            <Input
+              name="message"
+              placeholder="Type your message..."
+              className="flex-grow focus:ring-2 focus:ring-blue-500"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              disabled={isLoading}
+              autoComplete="off"
+            />
+            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
+              <Send className="h-5 w-5" />
+            </Button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
