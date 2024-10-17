@@ -155,7 +155,7 @@ export function KnowledgeBase() {
   };
 
   return (
-    <div className="w-full p-4 md:pt-0 pt-20"> {/* Added md:pt-0 to remove top padding on desktop */}
+    <div className="w-full p-4 md:p-4 pt-20 md:pt-4"> {/* Adjusted padding for mobile and desktop */}
       <h2 className="text-2xl font-bold mb-4">Knowledge Base</h2>
       <p className="text-muted-foreground mb-6">Upload and manage your knowledge base files</p>
       

@@ -705,7 +705,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className={`flex flex-col bg-background ${activeTab === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 fixed top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
@@ -732,7 +732,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16"> {/* Added pt-16 to account for header height */}
+      <div className={`flex flex-1 ${activeTab === 'chat' ? 'overflow-hidden' : 'overflow-visible'} pt-16 md:pt-0`}>
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -748,8 +748,8 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 overflow-hidden flex flex-col relative">
-          <main className="flex-1 overflow-y-auto">
+        <div className={`flex-1 ${activeTab === 'chat' ? 'overflow-hidden' : 'overflow-visible'} flex flex-col relative`}>
+          <main className={`flex-1 ${activeTab === 'chat' ? 'overflow-y-auto' : ''}`}>
             {renderTabContent}
           </main>
           {activeTab === 'chat' && (
