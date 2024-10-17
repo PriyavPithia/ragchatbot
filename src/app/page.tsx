@@ -29,7 +29,16 @@ type Message = {
 // Define ChatSession type or use any if structure is unknown
 type ChatSession = any;
 
-const MemoizedMessage = memo(({ message }: { message: Message }) => {
+const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes }: {
+  message: Message;
+  isLast: boolean;
+  lastMessageRef: React.RefObject<HTMLDivElement>;
+  index: number;
+  copyToClipboard: (content: string, index: number) => void;
+  regenerateResponse: (index: number) => Promise<void>;
+  copiedIndex: number | null;
+  regeneratingIndexes: Set<number>;
+}) => {
   console.log('Rendering message:', message.id);
   return (
     <div className={`mb-4 ${message.role === 'user' ? 'ml-auto text-right' : 'mr-auto'}`}>
@@ -49,9 +58,40 @@ const MemoizedMessage = memo(({ message }: { message: Message }) => {
           {message.content}
         </ReactMarkdown>
       </div>
+      {message.role === 'bot' && (
+        <div className="flex justify-start space-x-2 mt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => copyToClipboard(message.content, index)}
+            className="h-8 w-8"
+          >
+            {copiedIndex === index ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => regenerateResponse(index)}
+            className="h-8 w-8"
+            disabled={regeneratingIndexes.has(index)}
+          >
+            <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      )}
+      {isLast && <div ref={lastMessageRef} style={{ height: '1px' }} />}
     </div>
   );
-}, (prevProps, nextProps) => prevProps.message.id === nextProps.message.id);
+}, (prevProps, nextProps) => 
+  prevProps.message.id === nextProps.message.id && 
+  prevProps.isLast === nextProps.isLast &&
+  prevProps.copiedIndex === nextProps.copiedIndex &&
+  prevProps.regeneratingIndexes === nextProps.regeneratingIndexes
+);
 
 MemoizedMessage.displayName = 'MemoizedMessage';
 
@@ -82,15 +122,10 @@ export default function Home() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current;
-      const scrollHeight = scrollElement.scrollHeight;
-      const height = scrollElement.clientHeight;
-      const maxScrollTop = scrollHeight - height;
-      
-      scrollElement.scrollTo({
-        top: maxScrollTop,
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({
         behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
       });
     }
   }, []);
@@ -484,12 +519,21 @@ export default function Home() {
 
   const memoizedMessages = useMemo(() => {
     console.log('Recalculating memoizedMessages');
-    return messages
-      .filter(message => message.chat_id === activeChat)
-      .map((message) => (
-        <MemoizedMessage key={message.id || message.content} message={message} />
-      ));
-  }, [messages, activeChat]);
+    const filteredMessages = messages.filter(message => message.chat_id === activeChat);
+    return filteredMessages.map((message, index) => (
+      <MemoizedMessage 
+        key={message.id || message.content} 
+        message={message} 
+        isLast={index === filteredMessages.length - 1}
+        lastMessageRef={lastMessageRef}
+        index={index}
+        copyToClipboard={copyToClipboard}
+        regenerateResponse={regenerateResponse}
+        copiedIndex={copiedIndex}
+        regeneratingIndexes={regeneratingIndexes}
+      />
+    ));
+  }, [messages, activeChat, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]);
 
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
@@ -502,7 +546,15 @@ export default function Home() {
                   <LoadingDots />
                 </div>
               ) : (
-                memoizedMessages
+                <>
+                  {memoizedMessages}
+                  {isLoading && (
+                    <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto">
+                      <LoadingDots />
+                    </div>
+                  )}
+                  <div ref={lastMessageRef} style={{ height: '1px' }} />
+                </>
               )}
             </div>
           </div>
@@ -514,7 +566,7 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, loadingChats, activeChat, isMobile]);
+  }, [activeTab, memoizedMessages, loadingChats, activeChat, isMobile, isLoading]);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -527,7 +579,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-20">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-20 fixed top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && !isMobile && (
@@ -553,7 +605,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden pt-16 pb-16"> {/* Add padding top and bottom */}
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -569,30 +621,30 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <main className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col relative">
+          <main className="flex-1 overflow-y-auto">
             {renderTabContent}
           </main>
-          {activeTab === 'chat' && (
-            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} ${!isMobile ? 'ml-64' : ''}`}>
-              <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
-                <Input
-                  name="message"
-                  placeholder="Type your message..."
-                  className="flex-grow focus:ring-2 focus:ring-blue-500 text-base"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="off"
-                />
-                <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
-                  <Send className="h-5 w-5" />
-                </Button>
-              </form>
-            </div>
-          )}
         </div>
       </div>
+      {activeTab === 'chat' && (
+        <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} fixed bottom-0 left-0 right-0 z-20`}>
+          <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
+            <Input
+              name="message"
+              placeholder="Type your message..."
+              className="flex-grow focus:ring-2 focus:ring-blue-500 text-base"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              disabled={isLoading}
+              autoComplete="off"
+            />
+            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
+              <Send className="h-5 w-5" />
+            </Button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
