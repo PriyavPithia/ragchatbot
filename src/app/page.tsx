@@ -722,24 +722,14 @@ export default function Home() {
       <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 fixed top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
-          {activeTab === 'chat' && !isMobile && (
-            <Button
-              variant="outline"
-              size="default"
-              className="mr-2 text-base"
-              onClick={handleNewChat}
-            >
-              <Plus size={18} className="mr-2" />
-              New Chat
-            </Button>
-          )}
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="mr-2"
+            variant="outline"
+            size="default"
+            className="mr-2 text-base"
+            onClick={handleNewChat}
           >
-            <LogOut className="h-5 w-5" />
+            <Plus size={18} className="mr-2" />
+            New Chat
           </Button>
           <MobileSidebar 
             activeTab={activeTab} 

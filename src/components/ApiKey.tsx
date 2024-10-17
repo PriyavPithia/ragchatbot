@@ -115,7 +115,7 @@ export function ApiKey() {
   };
 
   return (
-    <div className="p-4 h-full md:p-4 pt-[120px] md:pt-4"> {/* Adjusted padding for mobile and desktop */}
+    <div className="p-4 h-full md:p-4 pt-[120px] md:pt-4">
       <h2 className="text-lg font-semibold mb-4">API Key</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
@@ -123,7 +123,7 @@ export function ApiKey() {
           placeholder="Enter your Gemini API key"
           value={apiKey}
           onChange={(e) => setLocalApiKey(e.target.value)}
-          className="focus-visible:ring-transparent"
+          className="focus-visible:ring-transparent text-base md:text-sm"
         />
         <Button type="submit">Save API Key</Button>
       </form>
