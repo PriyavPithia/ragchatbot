@@ -758,7 +758,7 @@ export default function Home() {
                 <Input
                   name="message"
                   placeholder="Type your message..."
-                  className="flex-grow focus:ring-2 focus:ring-blue-500 text-base"
+                  className="flex-grow focus:ring-2 focus:ring-blue-500 text-base focus-visible:ring-transparent"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   disabled={isLoading}

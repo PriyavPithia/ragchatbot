@@ -155,7 +155,7 @@ export function KnowledgeBase() {
   };
 
   return (
-    <div className="w-full p-4 pb-36"> {/* Increased bottom padding */}
+    <div className="w-full p-4"> {/* Removed pb-36 and overflow-y-auto */}
       <h2 className="text-2xl font-bold mb-4">Knowledge Base</h2>
       <p className="text-muted-foreground mb-6">Upload and manage your knowledge base files</p>
       
@@ -175,7 +175,7 @@ export function KnowledgeBase() {
                 </>
               )}
             </div>
-            <Input id="dropzone-file" type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+            <Input id="dropzone-file" type="file" className="hidden focus-visible:ring-transparent" onChange={handleFileUpload} disabled={isUploading} />
           </Label>
         </div>
         

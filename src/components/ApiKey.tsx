@@ -122,7 +122,8 @@ export function ApiKey() {
           type="password"
           placeholder="Enter your Gemini API key"
           value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
+          onChange={(e) => setLocalApiKey(e.target.value)}
+          className="focus-visible:ring-transparent"
         />
         <Button type="submit">Save API Key</Button>
       </form>
