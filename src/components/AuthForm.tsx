@@ -20,30 +20,15 @@ export function AuthForm() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        if (data.user) {
-          console.log('User signed up successfully:', data.user);
-          // Redirect to home page after successful sign-up
-          router.push('/');
-        } else {
-          setMessage('Please check your email to confirm your account.');
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        // Sign-in successful, the AuthProvider will update the user state
-        console.log('User signed in successfully');
-        router.push('/');
-      }
+      const { error } = isSignUp 
+        ? await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) throw error;
+      // The AuthProvider will handle redirection
     } catch (error) {
       console.error(`Error ${isSignUp ? 'signing up' : 'signing in'}:`, error);
-      if (error instanceof Error) {
-        setMessage(`Error: ${error.message}`);
-      } else {
-        setMessage('An unknown error occurred');
-      }
+      setMessage(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }

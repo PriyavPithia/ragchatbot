@@ -13,6 +13,7 @@ export function KnowledgeBase() {
   const [activeKnowledgeBase, setActiveKnowledgeBase] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const { user } = useAuth();
+  const MODEL_NAME = "gemini-pro";
 
   const fetchUploadedFiles = async () => {
     try {

@@ -15,6 +15,7 @@ import ReactMarkdown from 'react-markdown'
 import { LoadingDots } from '@/components/LoadingDots'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { memo } from 'react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const MODEL_NAME = "gemini-1.0-pro";
 
@@ -237,27 +238,20 @@ export default function Home() {
   }, [user, fetchApiKey]);
 
   const generateResponse = async (prompt: string): Promise<string> => {
-    // Implement your logic to generate a response using the Gemini API
-    // Ensure this function returns a string
+    if (!apiKey) {
+      throw new Error("API key is not set");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
     try {
-      const response = await fetch('https://api.gemini.com/v1/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({ model: MODEL_NAME, prompt })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch response from Gemini API');
-      }
-
-      const data = await response.json();
-      return data.response || 'Sorry, I could not generate a response.';
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      return response.text();
     } catch (error) {
       console.error('Error generating response:', error);
-      return 'Sorry, I encountered an error while generating a response.';
+      throw new Error('Failed to fetch response from Gemini API');
     }
   };
 
@@ -272,14 +266,10 @@ export default function Home() {
     const currentChatId = activeChat;
     const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: currentChatId };
     
-    // Immediately add the user's message to the chat and clear the input
     setMessages(prev => [...prev, newUserMessage]);
     setInputMessage('');
-    
-    // Scroll to bottom immediately after adding user's message
     setTimeout(() => scrollToBottom(true), 100);
 
-    // Save the user's message to the database immediately
     try {
       await supabase.from('messages').insert([newUserMessage]);
     } catch (error) {
@@ -294,27 +284,20 @@ export default function Home() {
       console.log('Response generated successfully');
       const newBotMessage: Message = { role: 'bot', content: response, chat_id: currentChatId };
       
-      // Add the bot's response to the chat
       setMessages(prev => [...prev, newBotMessage]);
       
-      console.log('Saving bot message to database...');
       const { error } = await supabase.from('messages').insert([newBotMessage]);
-
       if (error) {
         console.error('Error saving bot message to database:', error);
-        throw error;
       }
-
-      console.log('Bot message saved successfully');
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       setMessages(prev => [
         ...prev, 
-        { role: 'bot', content: 'Sorry, I encountered an error. Please check your API key and try again.', chat_id: currentChatId }
+        { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: currentChatId }
       ]);
     } finally {
       setIsLoading(false);
-      // Scroll to bottom after everything is done, with a slight delay
       setTimeout(() => scrollToBottom(true), 100);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
