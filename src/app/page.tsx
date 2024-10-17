@@ -137,7 +137,7 @@ export default function Home() {
   const [chats, setChats] = useState<{ id: string; name: string }[]>([])
   const [geminiChat, setGeminiChat] = useState<ChatSession | null>(null)
   const [message, setMessage] = useState('')
-  const [showScrollButton, setShowScrollButton] = useState(false); // Define state for scroll button
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const [activeKnowledgeBaseContent, setActiveKnowledgeBaseContent] = useState<string | null>(null);
   const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
 
@@ -174,7 +174,7 @@ export default function Home() {
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100; // Show button when not at bottom
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
       setShowScrollButton(!isAtBottom);
     }
   }, []);
@@ -519,8 +519,6 @@ export default function Home() {
                     </div>
                   )}
                   <div ref={lastMessageRef} style={{ height: '1px' }} />
-                  {/* Add extra padding at the bottom */}
-                  <div className="h-32" /> {/* Adjust this value as needed */}
                 </>
               )}
             </div>
@@ -559,6 +557,11 @@ export default function Home() {
     fetchActiveKnowledgeBaseContent();
   }, [activeKnowledgeBase, fetchActiveKnowledgeBaseContent]);
 
+  // Add this useEffect to scroll to bottom when messages change or component mounts
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [messages, scrollToBottom]);
+
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
@@ -596,7 +599,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16"> {/* Remove bottom padding */}
+      <div className="flex flex-1 overflow-hidden pt-16">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -618,7 +621,7 @@ export default function Home() {
           </main>
           {showScrollButton && (
             <Button
-              className="fixed bottom-24 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg z-50"
+              className="fixed bottom-20 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg z-50"
               onClick={() => scrollToBottom(true)}
             >
               <ArrowDown size={24} />
