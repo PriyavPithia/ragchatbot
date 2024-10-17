@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, RefreshCw, Check, Plus, ArrowDown } from 'lucide-react'
+import { Send, Copy, RefreshCw, Check, Plus, ArrowDown, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -23,6 +23,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { memo } from 'react';
+import type { Components } from 'react-markdown';
 
 const MODEL_NAME = "gemini-1.0-pro";
 
@@ -33,61 +34,44 @@ type Message = {
   chat_id?: string;
 };
 
-const MemoizedMessage = memo(({ message, index, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes }: {
-  message: Message;
-  index: number;
-  copyToClipboard: (content: string, index: number) => void;
-  regenerateResponse: (index: number) => Promise<void>;
-  copiedIndex: number | null;
-  regeneratingIndexes: Set<number>;
-}) => (
-  <div
-    className={`mb-6 ${
-      message.role === 'user'
-        ? 'ml-auto'
-        : 'mr-auto w-full max-w-[80%]'
-    }`}
-  >
-    <div className={`rounded-lg ${
-      message.role === 'user'
-        ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
-        : 'bg-secondary text-secondary-foreground p-4'
-    }`}>
-      <ReactMarkdown
-        components={{
-          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-        }}
-      >
-        {message.content}
-      </ReactMarkdown>
-      {message.role === 'bot' && (
-        <div className="flex justify-end space-x-2 mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(message.content, index)}
-            className="h-10 w-10"
-          >
-            {copiedIndex === index ? (
-              <Check className="h-6 w-6" />
-            ) : (
-              <Copy className="h-6 w-6" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => regenerateResponse(index)}
-            className="h-10 w-10"
-            disabled={regeneratingIndexes.has(index)}
-          >
-            <RefreshCw className={`h-6 w-6 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} /> 
-          </Button>
-        </div>
-      )}
+const MemoizedMessage = memo(({ message }: { message: Message }) => (
+  <div className={`py-8 ${message.role === 'user' ? 'bg-white' : 'bg-gray-50'}`}>
+    <div className="max-w-3xl mx-auto flex space-x-6 px-4">
+      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+        {message.role === 'user' ? (
+          <User size={20} />
+        ) : (
+          <img src="/bot-avatar.png" alt="AI" className="w-6 h-6" />
+        )}
+      </div>
+      <div className="flex-grow">
+        <ReactMarkdown
+          components={{
+            p: ({ node, ...props }) => <p className="mb-4 text-gray-800" {...props} />,
+            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-4" {...props} />,
+            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-4" {...props} />,
+            li: ({ node, ...props }) => <li className="mb-2" {...props} />,
+            code: (props) => {
+              const { className, children, ...rest } = props;
+              const match = /language-(\w+)/.exec(className || '');
+              const isInline = !match && !children?.toString().includes('\n');
+              return isInline ? (
+                <code className="bg-gray-100 rounded px-1 py-0.5" {...rest}>
+                  {children}
+                </code>
+              ) : (
+                <pre className="bg-gray-100 rounded p-4 overflow-x-auto">
+                  <code className={className} {...rest}>
+                    {children}
+                  </code>
+                </pre>
+              );
+            },
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      </div>
     </div>
   </div>
 ));
@@ -130,13 +114,25 @@ export default function Home() {
     return false;
   }, []);
 
-  const scrollToBottom = useCallback((smooth: boolean = true) => {
+  const scrollToBottom = useCallback((smooth: boolean = true, showLoading: boolean = false) => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
+      const scrollOptions: ScrollIntoViewOptions = {
         behavior: smooth ? 'smooth' : 'auto',
         block: 'end',
         inline: 'nearest'
-      });
+      };
+
+      if (showLoading) {
+        // Scroll to show loading dots
+        const loadingElement = document.querySelector('.loading-dots');
+        if (loadingElement) {
+          loadingElement.scrollIntoView(scrollOptions);
+        } else {
+          messagesEndRef.current.scrollIntoView(scrollOptions);
+        }
+      } else {
+        messagesEndRef.current.scrollIntoView(scrollOptions);
+      }
     }
   }, []);
 
@@ -422,6 +418,8 @@ export default function Home() {
     }
 
     setIsLoading(true);
+    // Scroll to show loading dots
+    setTimeout(() => scrollToBottom(true, true), 100);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -582,41 +580,50 @@ export default function Home() {
         <MemoizedMessage
           key={message.id || index}
           message={message}
-          index={index}
-          copyToClipboard={copyToClipboard}
-          regenerateResponse={regenerateResponse}
-          copiedIndex={copiedIndex}
-          regeneratingIndexes={regeneratingIndexes}
         />
       )),
-    [messages, activeChat, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]
+    [messages, activeChat]
   );
 
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'chat':
         return (
-          <div className="flex flex-col h-full relative">
-            <ScrollArea 
-              className="flex-grow overflow-y-auto pt-16 pb-20" 
-              ref={scrollAreaRef}
-            >
-              <div className="flex flex-col px-4">
-                {memoizedMessages}
-                {isLoading && (
-                  <div className="mb-4 p-3 rounded-lg bg-secondary text-secondary-foreground max-w-[80%] mr-auto">
-                    <LoadingDots />
+          <div className="flex flex-col h-full">
+            <div className="flex-grow overflow-y-auto">
+              {memoizedMessages}
+              {isLoading && (
+                <div className="py-8 bg-white">
+                  <div className="max-w-3xl mx-auto flex space-x-6 px-4">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                      <img src="/bot-avatar.png" alt="AI" className="w-6 h-6" />
+                    </div>
+                    <div className="flex-grow">
+                      <LoadingDots />
+                    </div>
                   </div>
-                )}
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            <div className="border-t bg-white py-4">
+              <div className="max-w-3xl mx-auto px-4">
+                <form onSubmit={handleSendMessage} className="flex space-x-4">
+                  <Input
+                    name="message"
+                    placeholder="Type your message..."
+                    className="flex-grow focus:ring-2 focus:ring-blue-500"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    disabled={isLoading}
+                    autoComplete="off"
+                  />
+                  <Button type="submit" disabled={isLoading} className="bg-blue-500 hover:bg-blue-600 text-white">
+                    <Send className="h-5 w-5" />
+                  </Button>
+                </form>
               </div>
-              <div ref={messagesEndRef} style={{ height: '1px', width: '100%' }} />
-            </ScrollArea>
-            <Button
-              className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
-              onClick={() => scrollToBottom()}
-            >
-              <ArrowDown size={24} />
-            </Button>
+            </div>
           </div>
         );
       case 'knowledgebase':
@@ -626,7 +633,7 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, isLoading, scrollToBottom, scrollAreaRef, messagesEndRef]);
+  }, [activeTab, memoizedMessages, isLoading, inputMessage, handleSendMessage]);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
