@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from 'react'
-import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
 import { Send, Copy, Check, Plus, ArrowDown } from 'lucide-react'
@@ -23,6 +23,7 @@ type Message = {
   content: string;
   id?: string;
   chat_id?: string;
+  isPending?: boolean;
 };
 
 // Define ChatSession type or use any if structure is unknown
@@ -51,12 +52,11 @@ const messagesReducer = (state: MessagesState, action: MessagesAction): Messages
 const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToClipboard, copiedIndex }: {
   message: Message;
   isLast: boolean;
-  lastMessageRef: React.RefObject<HTMLDivElement>;
+  lastMessageRef?: React.RefObject<HTMLDivElement>;  // Make this optional
   index: number;
   copyToClipboard: (content: string, index: number) => void;
   copiedIndex: number | null;
 }) => {
-  // Remove console.log to reduce noise
   return (
     <div className={`mb-4 ${message.role === 'user' ? 'ml-auto text-right' : 'mr-auto'}`}>
       <div className={`rounded-lg ${
@@ -91,10 +91,11 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
           </div>
         )}
       </div>
+      {isLast && message.role === 'bot' && <div className="h-10" />} {/* Keep this h-10 div */}
       {isLast && <div ref={lastMessageRef} style={{ height: '1px' }} />}
     </div>
   );
-}, (prevProps: { message: Message; isLast: boolean; copiedIndex: number | null }, nextProps: { message: Message; isLast: boolean; copiedIndex: number | null }) => 
+}, (prevProps, nextProps) => 
   prevProps.message.id === nextProps.message.id && 
   prevProps.isLast === nextProps.isLast &&
   prevProps.copiedIndex === nextProps.copiedIndex
@@ -137,55 +138,224 @@ export default function Home() {
   const [chats, setChats] = useState<{ id: string; name: string }[]>([])
   const [geminiChat, setGeminiChat] = useState<ChatSession | null>(null)
   const [message, setMessage] = useState('')
-  const [showScrollButton, setShowScrollButton] = useState(false);
   const [activeKnowledgeBaseContent, setActiveKnowledgeBaseContent] = useState<string | null>(null);
   const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
-
-  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const [shouldScroll, setShouldScroll] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | undefined>(undefined);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
 
-  const scrollToMiddle = useCallback(() => {
-    if (scrollAreaRef.current && lastMessageRef.current) {
-      const { scrollHeight, clientHeight } = scrollAreaRef.current;
-      const messageHeight = lastMessageRef.current.getBoundingClientRect().height;
-      const middleScroll = scrollHeight - clientHeight - (messageHeight / 2); // Adjust for scrolling to the middle
+  const [globalApiKey, setGlobalApiKey] = useState('');
+  const [globalKnowledgeBases, setGlobalKnowledgeBases] = useState<{ id: string; name: string; content: string }[]>([]);
+  const [globalActiveKnowledgeBase, setGlobalActiveKnowledgeBase] = useState<string | null>(null);
 
-      scrollAreaRef.current.scrollTo({
-        top: middleScroll,
-        behavior: 'smooth',
-      });
+  // Use useMemo to combine local and global messages
+  const allMessages = useMemo(() => {
+    return [...localMessages, ...messages.filter(m => m.chat_id === activeChat)];
+  }, [localMessages, messages, activeChat]);
+
+  const scrollToBottom = useCallback(() => {
+    if (shouldScroll && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      setShouldScroll(false);
     }
+  }, [shouldScroll]);
+
+  const triggerScroll = useCallback(() => {
+    setShouldScroll(true);
   }, []);
 
-  const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current;
-      const scrollHeight = scrollElement.scrollHeight;
-      const height = scrollElement.clientHeight;
-      const maxScrollTop = scrollHeight - height;
-      
-      scrollElement.scrollTo({
-        top: maxScrollTop,
-        behavior: smooth ? 'smooth' : 'auto',
-      });
+  const generateResponse = useCallback(async (prompt: string): Promise<string> => {
+    if (!apiKey) {
+      throw new Error("API key is not set");
     }
-  }, []);
 
-  const handleScroll = useCallback(() => {
-    if (scrollAreaRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShowScrollButton(!isAtBottom);
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+    try {
+      let fullPrompt = prompt;
+      if (activeKnowledgeBaseContent) {
+        fullPrompt = `Given the following context:\n\n${activeKnowledgeBaseContent}\n\nPlease answer the following question: ${prompt}`;
+      }
+
+      const result = await model.generateContent(fullPrompt);
+      const response = result.response;
+      return response.text();
+    } catch (error) {
+      console.error('Error generating response:', error);
+      throw new Error('Failed to fetch response from Gemini API');
     }
-  }, []);
+  }, [apiKey, activeKnowledgeBaseContent]);
 
+  const handleNewChat = useCallback(() => {
+    // ... existing new chat logic ...
+    triggerScroll();
+  }, [triggerScroll]);
+
+  // New function to add user message immediately
+  const addUserMessage = useCallback((message: string) => {
+    if (message.trim() && activeChat) {
+      const userMessage = { role: 'user', content: message, chat_id: activeChat };
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: userMessage });
+    }
+  }, [activeChat, dispatchMessages]);
+
+  // Effect to handle immediate user message display
+  useLayoutEffect(() => {
+    if (pendingUserMessage && activeChat) {
+      const userMessage: Message = { 
+        role: 'user', 
+        content: pendingUserMessage, 
+        chat_id: activeChat 
+      };
+      setLocalMessages(prev => [...prev, userMessage]);
+      setPendingUserMessage(undefined);
+      triggerScroll();
+    }
+  }, [pendingUserMessage, activeChat, triggerScroll]);
+
+  // Effect to handle AI response generation
   useEffect(() => {
-    const scrollArea = scrollAreaRef.current;
-    if (scrollArea) {
-      scrollArea.addEventListener('scroll', handleScroll);
-      return () => scrollArea.removeEventListener('scroll', handleScroll);
+    const generateAIResponse = async () => {
+      if (!pendingUserMessage || !activeChat) return;
+
+      setIsLoading(true);
+
+      try {
+        const aiResponse = await generateResponse(pendingUserMessage);
+        
+        dispatchMessages({ 
+          type: 'ADD_MESSAGE', 
+          payload: { role: 'user', content: pendingUserMessage, chat_id: activeChat }
+        });
+        dispatchMessages({ 
+          type: 'ADD_MESSAGE', 
+          payload: { role: 'bot', content: aiResponse, chat_id: activeChat }
+        });
+        
+        setLocalMessages(prev => prev.filter(m => m.content !== pendingUserMessage));
+        
+        triggerScroll();
+      } catch (error) {
+        console.error('Error generating response:', error);
+        dispatchMessages({ 
+          type: 'ADD_MESSAGE', 
+          payload: { role: 'error', content: 'Failed to get AI response. Please try again.', chat_id: activeChat }
+        });
+      } finally {
+        setIsLoading(false);
+        triggerScroll();
+      }
+    };
+
+    generateAIResponse();
+  }, [pendingUserMessage, activeChat, generateResponse, dispatchMessages, triggerScroll]);
+
+  const saveMessageToSupabase = async (message: Message) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([message])
+        .select();
+
+      if (error) throw error;
+      console.log('Message saved to Supabase:', data);
+    } catch (error) {
+      console.error('Error saving message to Supabase:', error);
     }
-  }, [handleScroll]);
+  };
+
+  const handleSendMessage = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!inputMessage.trim() || !activeChat) return;
+
+    console.log('Sending message:', inputMessage);
+
+    const userMessage: Message = {
+      role: 'user',
+      content: inputMessage,
+      chat_id: activeChat
+    };
+
+    setLocalMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    triggerScroll();
+
+    // Save user message to Supabase
+    await saveMessageToSupabase(userMessage);
+
+    // Start AI response generation
+    generateAIResponse(inputMessage, activeChat);
+  }, [inputMessage, activeChat, triggerScroll]);
+
+  const generateAIResponse = useCallback(async (message: string, chatId: string) => {
+    console.log('Generating AI response for:', message);
+    setIsLoading(true);
+
+    try {
+      const aiResponse = await generateResponse(message);
+      console.log('AI response received:', aiResponse);
+      
+      const aiMessage: Message = { role: 'bot', content: aiResponse, chat_id: chatId };
+      
+      // Add both user and AI messages to confirmed messages
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'user', content: message, chat_id: chatId } });
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: aiMessage });
+      
+      // Save AI message to Supabase
+      await saveMessageToSupabase(aiMessage);
+      
+      // Clear local messages
+      setLocalMessages([]);
+      
+      triggerScroll();
+    } catch (error) {
+      console.error('Error generating response:', error);
+      const errorMessage: Message = { role: 'error', content: 'Failed to get AI response. Please try again.', chat_id: chatId };
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: errorMessage });
+      await saveMessageToSupabase(errorMessage);
+    } finally {
+      setIsLoading(false);
+      triggerScroll();
+    }
+  }, [generateResponse, dispatchMessages, triggerScroll]);
+
+  // Fetch messages from Supabase when activeChat changes
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!activeChat) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('chat_id', activeChat)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    };
+
+    fetchMessages();
+  }, [activeChat, supabase, dispatchMessages]);
+
+  console.log('Rendering messages:', { localMessages, globalMessages: messages, allMessages });
+
+  // Render function
+  const renderMessages = () => {
+    return allMessages.map((message, index) => (
+      <div key={`${message.chat_id}-${index}`} className="mb-4">
+        <strong>{message.role}: </strong>
+        {message.content}
+      </div>
+    ));
+  };
 
   const fetchChats = useCallback(async () => {
     if (user) {
@@ -273,7 +443,7 @@ export default function Home() {
     if (activeChat) {
       fetchMessages(activeChat);
       // Scroll to bottom after loading messages
-      setTimeout(() => scrollToBottom(false), 100);
+      setTimeout(() => scrollToBottom(), 100);
     }
   }, [activeChat, fetchMessages, scrollToBottom]);
 
@@ -320,6 +490,9 @@ export default function Home() {
       
       console.log('Number of messages fetched:', data?.length);
       dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
+      
+      // Trigger scroll after messages are loaded
+      triggerScroll();
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -329,110 +502,8 @@ export default function Home() {
         return newSet;
       });
       console.log('Finished setting active chat');
-      // Scroll to the bottom of the last messages
-      setTimeout(() => scrollToBottom(true), 50); 
     }
-  }, [supabase, scrollToBottom]);
-
-  const generateResponse = useCallback(async (prompt: string): Promise<string> => {
-    if (!apiKey) {
-      throw new Error("API key is not set");
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
-    try {
-      let fullPrompt = prompt;
-      if (activeKnowledgeBaseContent) {
-        fullPrompt = `Given the following context:\n\n${activeKnowledgeBaseContent}\n\nPlease answer the following question: ${prompt}`;
-      }
-
-      const result = await model.generateContent(fullPrompt);
-      const response = result.response;
-      return response.text();
-    } catch (error) {
-      console.error('Error generating response:', error);
-      throw new Error('Failed to fetch response from Gemini API');
-    }
-  }, [apiKey, activeKnowledgeBaseContent]);
-
-  const handleSendMessage = useCallback(async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!inputMessage.trim() || !activeChat) return;
-    if (!apiKey) {
-      dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Please set your API key in the settings before sending messages.' } });
-      return;
-    }
-
-    const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: activeChat };
-    
-    dispatchMessages({ type: 'ADD_MESSAGE', payload: newUserMessage });
-    setInputMessage('');
-    
-    // Scroll to bottom immediately after adding user's message
-    scrollToBottom(true);
-
-    await saveMessage(newUserMessage);
-
-    setIsLoading(true);
-
-    try {
-      const botResponse = await generateResponse(inputMessage);
-      const newBotMessage: Message = { role: 'bot', content: botResponse, chat_id: activeChat };
-      
-      dispatchMessages({ type: 'ADD_MESSAGE', payload: newBotMessage });
-      
-      await saveMessage(newBotMessage);
-      
-      // Scroll to bottom immediately after adding bot's message
-      scrollToBottom(true);
-    } catch (error) {
-      console.error('Error in handleSendMessage:', error);
-      dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: activeChat } });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom]);
-
-  const handleNewChat = async () => {
-    console.log('handleNewChat called in Home component');
-    if (!user) {
-      console.log('No user found, cannot create new chat');
-      return;
-    }
-
-    const newChatName = `New Chat ${chats.length + 1}`;
-    try {
-      console.log('Creating new chat:', newChatName);
-      const { data, error } = await supabase
-        .from('chats')
-        .insert({ user_id: user.id, name: newChatName })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
-      if (!data) {
-        console.error('No data returned from insert operation');
-        throw new Error('No data returned from insert operation');
-      }
-
-      console.log('New chat created:', data);
-      setChats(prevChats => [data, ...prevChats]);
-      setActiveChat(data.id);
-      setActiveTab('chat');
-      dispatchMessages({ type: 'CLEAR_MESSAGES' });
-      setGeminiChat(null);
-      scrollToBottom(false);
-    } catch (error) {
-      console.error('Error creating new chat:', error);
-      setMessage('Failed to create a new chat. Please try again.');
-    }
-  };
+  }, [supabase, dispatchMessages, triggerScroll]);
 
   const handleDeleteChat = async (chatId: string) => {
     try {
@@ -492,20 +563,20 @@ export default function Home() {
         key={message.id || `${message.chat_id}-${index}`}
         message={message} 
         isLast={index === filteredMessages.length - 1}
-        lastMessageRef={lastMessageRef}
+        lastMessageRef={index === filteredMessages.length - 1 ? messagesEndRef : undefined}
         index={index}
         copyToClipboard={copyToClipboard}
         copiedIndex={copiedIndex}
       />
     ));
-  }, [messages, activeChat, lastMessageRef, copyToClipboard, copiedIndex]);
+  }, [messages, activeChat, copyToClipboard, copiedIndex, messagesEndRef]);
 
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <div className={`flex-grow overflow-y-auto py-4 ${isMobile ? 'px-2' : 'px-4'}`} ref={scrollAreaRef}>
+            <div className={`flex-grow overflow-y-auto py-4 ${isMobile ? 'px-2' : 'px-4'} scrollable-area`} ref={scrollAreaRef}>
               {loadingChats.has(activeChat || '') ? (
                 <div className="flex justify-center items-center h-full">
                   <LoadingDots />
@@ -514,11 +585,13 @@ export default function Home() {
                 <>
                   {memoizedMessages}
                   {isLoading && (
-                    <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto">
-                      <LoadingDots />
-                    </div>
+                    <>
+                      <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto relative">
+                        <LoadingDots />
+                      </div>
+                      <div className="h-16"></div> {/* Spacer visible only when loading */}
+                    </>
                   )}
-                  <div ref={lastMessageRef} style={{ height: '1px' }} />
                 </>
               )}
             </div>
@@ -559,8 +632,68 @@ export default function Home() {
 
   // Add this useEffect to scroll to bottom when messages change or component mounts
   useEffect(() => {
-    scrollToBottom(false);
+    scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].role === 'bot') {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    const loadGlobalState = async () => {
+      if (user) {
+        await fetchApiKey(user.id);
+        await fetchKnowledgeBases(user.id);
+        fetchActiveKnowledgeBase();
+      }
+    };
+
+    loadGlobalState();
+  }, [user]);
+
+  const fetchApiKey = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('key')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setGlobalApiKey(data.key);
+        setApiKey(data.key);
+        localStorage.setItem('geminiApiKey', data.key);
+      }
+    } catch (error) {
+      console.error('Error fetching API key:', error);
+    }
+  };
+
+  const fetchKnowledgeBases = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('knowledgebases')
+        .select('id, name, content')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      if (data) {
+        setGlobalKnowledgeBases(data);
+      }
+    } catch (error) {
+      console.error('Error fetching knowledge bases:', error);
+    }
+  };
+
+  const fetchActiveKnowledgeBase = () => {
+    const storedActiveKB = localStorage.getItem('activeKnowledgeBase');
+    if (storedActiveKB) {
+      setGlobalActiveKnowledgeBase(storedActiveKB);
+    }
+  };
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -616,17 +749,9 @@ export default function Home() {
           </div>
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
-          <main className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
+          <main className="flex-1 overflow-y-auto">
             {renderTabContent}
           </main>
-          {showScrollButton && (
-            <Button
-              className="fixed bottom-20 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg z-50"
-              onClick={() => scrollToBottom(true)}
-            >
-              <ArrowDown size={24} />
-            </Button>
-          )}
           {activeTab === 'chat' && (
             <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} fixed bottom-0 right-0 z-20`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">

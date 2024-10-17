@@ -11,6 +11,7 @@ export function ApiKey() {
   const [message, setMessage] = useState('');
   const { user, apiKey: contextApiKey, setApiKey } = useAuth();
   const [existingKeyId, setExistingKeyId] = useState<string | null>(null);
+  const [globalApiKey, setGlobalApiKey] = useState('');
 
   const fetchApiKey = async () => {
     if (!user) {
@@ -46,10 +47,10 @@ export function ApiKey() {
   useEffect(() => {
     if (user) {
       console.log('Current user ID:', user.id);
-      setLocalApiKey(contextApiKey);
+      setLocalApiKey(contextApiKey || globalApiKey);
       fetchApiKey();
     }
-  }, [user, contextApiKey]);
+  }, [user, contextApiKey, globalApiKey]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -94,7 +95,8 @@ export function ApiKey() {
       console.log('API Key saved successfully', data);
       if (data && data[0]) {
         setExistingKeyId(data[0].id);
-        setApiKey(apiKey); // Update the API key in the AuthProvider
+        setApiKey(apiKey);
+        setGlobalApiKey(apiKey);
         localStorage.setItem('geminiApiKey', apiKey);
       }
     } catch (error: any) {

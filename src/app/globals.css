@@ -11,15 +11,8 @@ html, body {
   height: 100%;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.hide-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+.scrollable-area {
+  scroll-behavior: smooth;
 }
 
 :root {
@@ -140,4 +133,16 @@ html, body {
   .chat-input {
     margin-left: 16rem; /* 64px * 4 = 256px, which is the sidebar width */
   }
+}
+
+.scroll-to-bottom-button {
+  position: fixed;
+  bottom: 6rem;
+  right: 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 9999px;
+  padding: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
 }
