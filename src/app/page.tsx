@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from 'react'
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, RefreshCw, Check, Plus, ArrowDown } from 'lucide-react'
+import { Send, Copy, Check, Plus, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MobileSidebar } from '../components/MobileSidebar'
@@ -14,7 +14,6 @@ import { ApiKey } from '../components/ApiKey'
 import ReactMarkdown from 'react-markdown'
 import { LoadingDots } from '@/components/LoadingDots'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { memo } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const MODEL_NAME = "gemini-1.0-pro";
@@ -28,6 +27,26 @@ type Message = {
 
 // Define ChatSession type or use any if structure is unknown
 type ChatSession = any;
+
+type MessagesState = Message[];
+
+type MessagesAction = 
+  | { type: 'ADD_MESSAGE'; payload: Message }
+  | { type: 'SET_MESSAGES'; payload: Message[] }
+  | { type: 'CLEAR_MESSAGES' };
+
+const messagesReducer = (state: MessagesState, action: MessagesAction): MessagesState => {
+  switch (action.type) {
+    case 'ADD_MESSAGE':
+      return [...state, action.payload];
+    case 'SET_MESSAGES':
+      return action.payload;
+    case 'CLEAR_MESSAGES':
+      return [];
+    default:
+      return state;
+  }
+};
 
 const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToClipboard, copiedIndex }: {
   message: Message;
@@ -75,13 +94,32 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
       {isLast && <div ref={lastMessageRef} style={{ height: '1px' }} />}
     </div>
   );
-}, (prevProps, nextProps) => 
+}, (prevProps: { message: Message; isLast: boolean; copiedIndex: number | null }, nextProps: { message: Message; isLast: boolean; copiedIndex: number | null }) => 
   prevProps.message.id === nextProps.message.id && 
   prevProps.isLast === nextProps.isLast &&
   prevProps.copiedIndex === nextProps.copiedIndex
 );
 
 MemoizedMessage.displayName = 'MemoizedMessage';
+
+type ChatSessionProps = {
+  chat: { id: string; name: string };
+  isActive: boolean;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, newName: string) => void;
+};
+
+const MemoizedChatSession = memo(({ chat, isActive, onSelect, onDelete, onRename }: ChatSessionProps) => (
+  <div className={`p-2 ${isActive ? 'bg-secondary' : ''}`}>
+    <div>{chat.name}</div>
+    <Button onClick={() => onSelect(chat.id)}>Select</Button>
+    <Button onClick={() => onDelete(chat.id)}>Delete</Button>
+    <Button onClick={() => onRename(chat.id, 'New Name')}>Rename</Button>
+  </div>
+));
+
+MemoizedChatSession.displayName = 'MemoizedChatSession';
 
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
@@ -90,9 +128,7 @@ export default function Home() {
 
   const [isMobile, setIsMobile] = useState(false)
   const [activeTab, setActiveTab] = useState('chat')
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'bot', content: 'Hello! How can I assist you today?' },
-  ])
+  const [messages, dispatchMessages] = useReducer(messagesReducer, [] as MessagesState);
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
@@ -108,17 +144,9 @@ export default function Home() {
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current;
-      const scrollHeight = scrollElement.scrollHeight;
-      const height = scrollElement.clientHeight;
-      const maxScrollTop = scrollHeight - height;
-      
-      scrollElement.scrollTo({
-        top: maxScrollTop,
-        behavior: smooth ? 'smooth' : 'auto',
-      });
+  const scrollToBottom = useCallback((smooth: boolean = false) => {
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
     }
   }, []);
 
@@ -176,7 +204,7 @@ export default function Home() {
         throw error;
       }
 
-      setMessages(data || []);
+      dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
     } catch (error) {
       console.error('Error in fetchMessages:', error);
     }
@@ -226,11 +254,32 @@ export default function Home() {
     }
   }, [activeChat, fetchMessages]);
 
+  const saveMessage = async (message: Message) => {
+    try {
+      await supabase.from('messages').insert([message]);
+    } catch (error) {
+      console.error('Error saving message to database:', error);
+    }
+  };
+
+  const fetchResponse = async (messageContent: string): Promise<Message> => {
+    setIsLoading(true);
+    try {
+      const response = await generateResponse(messageContent);
+      return { role: 'bot', content: response, chat_id: activeChat || '' };
+    } catch (error) {
+      console.error('Error fetching response:', error);
+      return { role: 'bot', content: 'Error generating response', chat_id: activeChat || '' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     console.log('Setting active chat:', chatId);
     setActiveChat(chatId);
     setLoadingChats(prev => new Set(prev).add(chatId));
-    setMessages([]); // Clear messages immediately
+    dispatchMessages({ type: 'CLEAR_MESSAGES' });
 
     try {
       console.log('Fetching messages for chat:', chatId);
@@ -247,7 +296,7 @@ export default function Home() {
       if (error) throw error;
       
       console.log('Number of messages fetched:', data?.length);
-      setMessages(data || []);
+      dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -257,66 +306,11 @@ export default function Home() {
         return newSet;
       });
       console.log('Finished setting active chat');
-      // Use a short timeout to ensure the messages are rendered before scrolling
       setTimeout(() => scrollToBottom(false), 50);
     }
   }, [supabase, scrollToBottom]);
 
-  const fetchApiKey = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('key')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
-
-      if (data && data.key) {
-        setApiKey(data.key);
-        localStorage.setItem('geminiApiKey', data.key);
-      }
-    } catch (error) {
-      console.error('Error fetching API key:', error);
-    }
-  }, [user, supabase, setApiKey]);
-
-  useEffect(() => {
-    if (user) {
-      fetchApiKey();
-    }
-  }, [user, fetchApiKey]);
-
-  const fetchActiveKnowledgeBaseContent = useCallback(async () => {
-    const activeKBId = localStorage.getItem('activeKnowledgeBase');
-    if (activeKBId && user) {
-      try {
-        const { data, error } = await supabase
-          .from('knowledgebases')
-          .select('content')
-          .eq('id', activeKBId)
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          setActiveKnowledgeBaseContent(data.content);
-        }
-      } catch (error) {
-        console.error('Error fetching active knowledge base content:', error);
-      }
-    }
-  }, [user, supabase]);
-
-  useEffect(() => {
-    if (user) {
-      fetchActiveKnowledgeBaseContent();
-    }
-  }, [user, fetchActiveKnowledgeBaseContent]);
-
-  const generateResponse = async (prompt: string): Promise<string> => {
+  const generateResponse = useCallback(async (prompt: string): Promise<string> => {
     if (!apiKey) {
       throw new Error("API key is not set");
     }
@@ -337,64 +331,44 @@ export default function Home() {
       console.error('Error generating response:', error);
       throw new Error('Failed to fetch response from Gemini API');
     }
-  };
-
-  // Add this new effect to scroll when messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom(true);
-    }
-  }, [messages, scrollToBottom]);
+  }, [apiKey, activeKnowledgeBaseContent]);
 
   const handleSendMessage = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
     if (!inputMessage.trim() || !activeChat) return;
     if (!apiKey) {
-      setMessages(prev => [...prev, { role: 'bot', content: 'Please set your API key in the settings before sending messages.' }]);
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Please set your API key in the settings before sending messages.' } });
       return;
     }
 
-    const currentChatId = activeChat;
-    const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: currentChatId };
+    const newUserMessage: Message = { role: 'user', content: inputMessage, chat_id: activeChat };
     
-    setMessages(prev => [...prev, newUserMessage]);
+    dispatchMessages({ type: 'ADD_MESSAGE', payload: newUserMessage });
     setInputMessage('');
     
     // Scroll to bottom after adding user's message
     setTimeout(() => scrollToBottom(true), 100);
 
-    try {
-      await supabase.from('messages').insert([newUserMessage]);
-    } catch (error) {
-      console.error('Error saving user message to database:', error);
-    }
+    await saveMessage(newUserMessage);
 
     setIsLoading(true);
 
     try {
-      console.log('Generating response for message:', inputMessage);
-      const response = await generateResponse(inputMessage);
-      console.log('Response generated successfully');
-      const newBotMessage: Message = { role: 'bot', content: response, chat_id: currentChatId };
+      const botResponse = await generateResponse(inputMessage);
+      const newBotMessage: Message = { role: 'bot', content: botResponse, chat_id: activeChat };
       
-      setMessages(prev => [...prev, newBotMessage]);
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: newBotMessage });
       
-      const { error } = await supabase.from('messages').insert([newBotMessage]);
-      if (error) {
-        console.error('Error saving bot message to database:', error);
-      }
+      await saveMessage(newBotMessage);
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
-      setMessages(prev => [
-        ...prev, 
-        { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: currentChatId }
-      ]);
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: activeChat } });
     } finally {
       setIsLoading(false);
       // Scroll to bottom after adding bot's message
       setTimeout(() => scrollToBottom(true), 100);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
@@ -426,7 +400,7 @@ export default function Home() {
       setChats(prevChats => [data, ...prevChats]);
       setActiveChat(data.id);
       setActiveTab('chat');
-      setMessages([]); 
+      dispatchMessages({ type: 'CLEAR_MESSAGES' });
       setGeminiChat(null);
       scrollToBottom(false);
     } catch (error) {
@@ -519,7 +493,7 @@ export default function Home() {
                       <LoadingDots />
                     </div>
                   )}
-                  <div style={{ height: '1px' }} /> {/* Removed lastMessageRef */}
+                  <div ref={lastMessageRef} style={{ height: '1px' }} />
                   {/* Add extra padding at the bottom */}
                   <div className="h-32" /> {/* Adjust this value as needed */}
                 </>
