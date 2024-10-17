@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from 'react'
-import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo, useLayoutEffect } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
 import { Send, Copy, Check, Plus, ArrowDown, LogOut } from 'lucide-react'
@@ -203,7 +203,7 @@ export default function Home() {
   }, [activeChat, dispatchMessages]);
 
   // Effect to handle immediate user message display
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (pendingUserMessage && activeChat) {
       const userMessage: Message = { 
         role: 'user', 
@@ -718,8 +718,8 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col bg-background min-h-screen">
-      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 sticky top-0 left-0 right-0">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 fixed top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && !isMobile && (
@@ -753,7 +753,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden pt-16">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -769,12 +769,12 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 overflow-hidden flex flex-col relative">
           <main className="flex-1 overflow-y-auto">
             {renderTabContent}
           </main>
           {activeTab === 'chat' && (
-            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} sticky bottom-0 left-0 right-0 z-20`}>
+            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} fixed bottom-0 right-0 z-20`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
                 <Input
                   name="message"
