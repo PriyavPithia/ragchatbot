@@ -144,9 +144,26 @@ export default function Home() {
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+  const scrollToMiddle = useCallback(() => {
+    if (scrollAreaRef.current && lastMessageRef.current) {
+      const { scrollHeight, clientHeight } = scrollAreaRef.current;
+      const messageHeight = lastMessageRef.current.getBoundingClientRect().height;
+      const middleScroll = scrollHeight - clientHeight - (messageHeight / 2); // Adjust for scrolling to the middle
+
+      scrollAreaRef.current.scrollTo({
+        top: middleScroll,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+
   const scrollToBottom = useCallback((smooth: boolean = false) => {
-    if (lastMessageRef.current) {
-      lastMessageRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    if (scrollAreaRef.current) {
+      const { scrollHeight, clientHeight } = scrollAreaRef.current;
+      scrollAreaRef.current.scrollTo({
+        top: scrollHeight - clientHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
     }
   }, []);
 
@@ -251,8 +268,9 @@ export default function Home() {
   useEffect(() => {
     if (activeChat) {
       fetchMessages(activeChat);
+      setTimeout(() => scrollToBottom(true), 100); // Scroll after fetching messages
     }
-  }, [activeChat, fetchMessages]);
+  }, [activeChat, fetchMessages, scrollToBottom]);
 
   const saveMessage = async (message: Message) => {
     try {
@@ -306,7 +324,8 @@ export default function Home() {
         return newSet;
       });
       console.log('Finished setting active chat');
-      setTimeout(() => scrollToBottom(false), 50);
+      // Scroll to the bottom of the last messages
+      setTimeout(() => scrollToBottom(true), 50); 
     }
   }, [supabase, scrollToBottom]);
 
@@ -365,10 +384,10 @@ export default function Home() {
       dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: activeChat } });
     } finally {
       setIsLoading(false);
-      // Scroll to bottom after adding bot's message
-      setTimeout(() => scrollToBottom(true), 100);
+      // Scroll to the middle of the bot's message
+      setTimeout(() => scrollToMiddle(), 100);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom, scrollToMiddle]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
