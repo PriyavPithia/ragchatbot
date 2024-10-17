@@ -174,7 +174,7 @@ export default function Home() {
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100; // Show button when not at bottom
       setShowScrollButton(!isAtBottom);
     }
   }, []);
@@ -371,7 +371,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom after adding user's message
-    scrollToBottom(true);
+    setTimeout(() => scrollToBottom(true), 100);
 
     await saveMessage(newUserMessage);
 
@@ -390,9 +390,9 @@ export default function Home() {
     } finally {
       setIsLoading(false);
       // Scroll to bottom after adding bot's message
-      scrollToBottom(true);
+      setTimeout(() => scrollToBottom(true), 100);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom, activeKnowledgeBaseContent]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
@@ -504,7 +504,7 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <div className={`flex-grow overflow-y-auto hide-scrollbar py-4 ${isMobile ? 'px-2' : 'px-4'}`} ref={scrollAreaRef}>
+            <div className={`flex-grow overflow-y-auto py-4 ${isMobile ? 'px-2' : 'px-4'}`} ref={scrollAreaRef}>
               {loadingChats.has(activeChat || '') ? (
                 <div className="flex justify-center items-center h-full">
                   <LoadingDots />
@@ -617,32 +617,32 @@ export default function Home() {
           </main>
           {showScrollButton && (
             <Button
-              className="fixed bottom-20 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg z-50"
+              className="fixed bottom-24 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg z-50"
               onClick={() => scrollToBottom(true)}
             >
               <ArrowDown size={24} />
             </Button>
           )}
+          {activeTab === 'chat' && (
+            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} fixed bottom-0 right-0 z-20`}>
+              <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
+                <Input
+                  name="message"
+                  placeholder="Type your message..."
+                  className="flex-grow focus:ring-2 focus:ring-blue-500 text-base"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+                <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
+                  <Send className="h-5 w-5" />
+                </Button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
-      {activeTab === 'chat' && (
-        <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} fixed bottom-0 left-0 right-0 z-20`}>
-          <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
-            <Input
-              name="message"
-              placeholder="Type your message..."
-              className="flex-grow focus:ring-2 focus:ring-blue-500 text-base"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              disabled={isLoading}
-              autoComplete="off"
-            />
-            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
-              <Send className="h-5 w-5" />
-            </Button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }
