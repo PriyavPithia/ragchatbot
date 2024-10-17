@@ -45,7 +45,7 @@ export function MobileSidebar({
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[250px] p-0">
+      <SheetContent side="right" className="w-[250px] p-0">
         <div className="h-full py-4">
           <Sidebar
             activeTab={activeTab}
