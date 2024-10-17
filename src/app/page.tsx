@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, Check, Plus, ArrowDown } from 'lucide-react'
+import { Send, Copy, Check, Plus, ArrowDown, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MobileSidebar } from '../components/MobileSidebar'
@@ -703,6 +703,11 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/auth')
+  }
+
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
@@ -728,6 +733,14 @@ export default function Home() {
               New Chat
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="mr-2"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
           <MobileSidebar 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
@@ -740,7 +753,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -756,12 +769,12 @@ export default function Home() {
             />
           </div>
         )}
-        <div className="flex-1 overflow-hidden flex flex-col relative">
+        <div className="flex-1 flex flex-col relative">
           <main className="flex-1 overflow-y-auto">
             {renderTabContent}
           </main>
           {activeTab === 'chat' && (
-            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} sticky bottom-0 right-0 z-20`}>
+            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} sticky bottom-0 left-0 right-0 z-20`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
                 <Input
                   name="message"
