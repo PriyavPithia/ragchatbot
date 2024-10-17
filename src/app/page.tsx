@@ -370,8 +370,8 @@ export default function Home() {
     dispatchMessages({ type: 'ADD_MESSAGE', payload: newUserMessage });
     setInputMessage('');
     
-    // Scroll to bottom after adding user's message
-    setTimeout(() => scrollToBottom(true), 100);
+    // Scroll to bottom immediately after adding user's message
+    scrollToBottom(true);
 
     await saveMessage(newUserMessage);
 
@@ -384,13 +384,14 @@ export default function Home() {
       dispatchMessages({ type: 'ADD_MESSAGE', payload: newBotMessage });
       
       await saveMessage(newBotMessage);
+      
+      // Scroll to bottom immediately after adding bot's message
+      scrollToBottom(true);
     } catch (error) {
       console.error('Error in handleSendMessage:', error);
       dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: activeChat } });
     } finally {
       setIsLoading(false);
-      // Scroll to bottom after adding bot's message
-      setTimeout(() => scrollToBottom(true), 100);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom]);
 
