@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, RefreshCw, Check, Plus, ArrowDown, User } from 'lucide-react'
+import { Send, Copy, RefreshCw, Check, Plus, ArrowDown, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -41,7 +41,7 @@ const MemoizedMessage = memo(({ message }: { message: Message }) => (
         {message.role === 'user' ? (
           <User size={20} />
         ) : (
-          <img src="/bot-avatar.png" alt="AI" className="w-6 h-6" />
+          <Bot size={20} />
         )}
       </div>
       <div className="flex-grow">
@@ -114,24 +114,19 @@ export default function Home() {
     return false;
   }, []);
 
-  const scrollToBottom = useCallback((smooth: boolean = true, showLoading: boolean = false) => {
+  const scrollToBottom = useCallback((force: boolean = false) => {
     if (messagesEndRef.current) {
-      const scrollOptions: ScrollIntoViewOptions = {
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
-        inline: 'nearest'
-      };
-
-      if (showLoading) {
-        // Scroll to show loading dots
-        const loadingElement = document.querySelector('.loading-dots');
-        if (loadingElement) {
-          loadingElement.scrollIntoView(scrollOptions);
+      const scrollContainer = messagesEndRef.current.parentElement;
+      if (scrollContainer) {
+        if (force) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
         } else {
-          messagesEndRef.current.scrollIntoView(scrollOptions);
+          const { scrollHeight, clientHeight, scrollTop } = scrollContainer;
+          const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+          if (isNearBottom) {
+            scrollContainer.scrollTop = scrollHeight - clientHeight;
+          }
         }
-      } else {
-        messagesEndRef.current.scrollIntoView(scrollOptions);
       }
     }
   }, []);
@@ -408,7 +403,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom immediately after adding user's message
-    setTimeout(() => scrollToBottom(false), 0);
+    scrollToBottom(true);
 
     // Save the user's message to the database immediately
     try {
@@ -419,7 +414,7 @@ export default function Home() {
 
     setIsLoading(true);
     // Scroll to show loading dots
-    setTimeout(() => scrollToBottom(true, true), 100);
+    setTimeout(() => scrollToBottom(true), 100);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -577,12 +572,58 @@ export default function Home() {
     messages
       .filter(message => message.chat_id === activeChat)
       .map((message, index) => (
-        <MemoizedMessage
-          key={message.id || index}
-          message={message}
-        />
+        <div
+          key={index}
+          className={`mb-6 ${
+            message.role === 'user'
+              ? 'ml-auto'
+              : 'mr-auto w-full'
+          }`}
+        >
+          <div className={`rounded-lg ${
+            message.role === 'user'
+              ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
+              : 'bg-secondary text-secondary-foreground p-4 w-full'
+          }`}>
+            <ReactMarkdown
+              components={{
+                p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+                ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
+                li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+            {message.role === 'bot' && (
+              <div className="flex justify-start space-x-2 mt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(message.content, index)}
+                  className="h-8 w-8"
+                >
+                  {copiedIndex === index ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <Copy className="h-5 w-5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => regenerateResponse(index)}
+                  className="h-8 w-8"
+                  disabled={regeneratingIndexes.has(index)}
+                >
+                  <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       )),
-    [messages, activeChat]
+    [messages, activeChat, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]
   );
 
   const renderTabContent = useMemo(() => {
@@ -672,7 +713,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16">
+      <div className="flex flex-1 overflow-hidden pt-16 pb-16"> {/* Added pb-16 to account for the footer height */}
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -692,26 +733,26 @@ export default function Home() {
           <main className="flex-1 overflow-hidden">
             {renderTabContent}
           </main>
-          {activeTab === 'chat' && chats.length > 0 && activeChat && (
-            <footer className={`p-2 sm:p-4 border-t fixed bottom-0 ${!isMobile ? 'left-64' : 'left-0'} right-0 bg-background z-10`}>
-              <form onSubmit={handleSendMessage} className="flex space-x-2 w-full max-w-3xl mx-auto">
-                <Input
-                  name="message"
-                  placeholder="Type your message..."
-                  className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 text-base [--tw-ring-offset-width:0px]"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="off"
-                />
-                <Button type="submit" disabled={isLoading} className="px-3 py-2 shrink-0">
-                  <Send className="h-5 w-5" />
-                </Button>
-              </form>
-            </footer>
-          )}
         </div>
       </div>
+      {activeTab === 'chat' && chats.length > 0 && activeChat && (
+        <footer className={`p-2 sm:p-4 border-t fixed bottom-0 left-0 right-0 bg-background z-10`}>
+          <form onSubmit={handleSendMessage} className="flex space-x-2 w-full max-w-3xl mx-auto">
+            <Input
+              name="message"
+              placeholder="Type your message..."
+              className="flex-1 focus:ring-2 focus:ring-blue-500"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              disabled={isLoading}
+              autoComplete="off"
+            />
+            <Button type="submit" disabled={isLoading} className="bg-blue-500 hover:bg-blue-600 text-white">
+              <Send className="h-5 w-5" />
+            </Button>
+          </form>
+        </footer>
+      )}
     </div>
   );
 }
