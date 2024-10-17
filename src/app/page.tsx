@@ -598,9 +598,17 @@ export default function Home() {
           </div>
         );
       case 'knowledgebase':
-        return <KnowledgeBase />;
+        return (
+          <div className="overflow-y-auto h-full pb-16">
+            <KnowledgeBase />
+          </div>
+        );
       case 'apikey':
-        return <ApiKey />;
+        return (
+          <div className="overflow-y-auto h-full pb-16">
+            <ApiKey />
+          </div>
+        );
       default:
         return null;
     }
@@ -705,8 +713,8 @@ export default function Home() {
   }
 
   return (
-    <div className={`flex flex-col bg-background ${activeTab === 'chat' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 fixed top-0 left-0 right-0">
+    <div className="flex flex-col bg-background min-h-screen">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 sticky top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           {activeTab === 'chat' && !isMobile && (
@@ -732,7 +740,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className={`flex flex-1 ${activeTab === 'chat' ? 'overflow-hidden' : 'overflow-visible'} pt-16 md:pt-0`}>
+      <div className="flex flex-1">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -748,12 +756,12 @@ export default function Home() {
             />
           </div>
         )}
-        <div className={`flex-1 ${activeTab === 'chat' ? 'overflow-hidden' : 'overflow-visible'} flex flex-col relative`}>
-          <main className={`flex-1 ${activeTab === 'chat' ? 'overflow-y-auto' : ''}`}>
+        <div className="flex-1 overflow-hidden flex flex-col relative">
+          <main className="flex-1 overflow-y-auto">
             {renderTabContent}
           </main>
           {activeTab === 'chat' && (
-            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} fixed bottom-0 right-0 z-20`}>
+            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} sticky bottom-0 right-0 z-20`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
                 <Input
                   name="message"
