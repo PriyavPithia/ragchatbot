@@ -157,11 +157,15 @@ export default function Home() {
     }
   }, []);
 
-  const scrollToBottom = useCallback((smooth: boolean = false) => {
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
     if (scrollAreaRef.current) {
-      const { scrollHeight, clientHeight } = scrollAreaRef.current;
-      scrollAreaRef.current.scrollTo({
-        top: scrollHeight - clientHeight,
+      const scrollElement = scrollAreaRef.current;
+      const scrollHeight = scrollElement.scrollHeight;
+      const height = scrollElement.clientHeight;
+      const maxScrollTop = scrollHeight - height;
+      
+      scrollElement.scrollTo({
+        top: maxScrollTop,
         behavior: smooth ? 'smooth' : 'auto',
       });
     }
@@ -268,7 +272,8 @@ export default function Home() {
   useEffect(() => {
     if (activeChat) {
       fetchMessages(activeChat);
-      setTimeout(() => scrollToBottom(true), 100); // Scroll after fetching messages
+      // Scroll to bottom after loading messages
+      setTimeout(() => scrollToBottom(false), 100);
     }
   }, [activeChat, fetchMessages, scrollToBottom]);
 
@@ -366,7 +371,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom after adding user's message
-    setTimeout(() => scrollToBottom(true), 100);
+    scrollToBottom(true);
 
     await saveMessage(newUserMessage);
 
@@ -384,10 +389,10 @@ export default function Home() {
       dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'bot', content: 'Sorry, I encountered an error while generating a response. Please try again later.', chat_id: activeChat } });
     } finally {
       setIsLoading(false);
-      // Scroll to the middle of the bot's message
-      setTimeout(() => scrollToMiddle(), 100);
+      // Scroll to bottom after adding bot's message
+      scrollToBottom(true);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom, scrollToMiddle]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, saveMessage, dispatchMessages, scrollToBottom, activeKnowledgeBaseContent]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
@@ -528,6 +533,30 @@ export default function Home() {
         return null;
     }
   }, [activeTab, memoizedMessages, loadingChats, activeChat, isMobile, isLoading]);
+
+  const fetchActiveKnowledgeBaseContent = useCallback(async () => {
+    if (activeKnowledgeBase && user) {
+      try {
+        const { data, error } = await supabase
+          .from('knowledgebases')
+          .select('content')
+          .eq('id', activeKnowledgeBase)
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setActiveKnowledgeBaseContent(data.content);
+        }
+      } catch (error) {
+        console.error('Error fetching active knowledge base content:', error);
+      }
+    }
+  }, [activeKnowledgeBase, user, supabase]);
+
+  useEffect(() => {
+    fetchActiveKnowledgeBaseContent();
+  }, [activeKnowledgeBase, fetchActiveKnowledgeBaseContent]);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
