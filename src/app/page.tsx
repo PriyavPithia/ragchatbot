@@ -727,6 +727,12 @@ export default function Home() {
     router.push('/auth')
   }
 
+  const scrollToBottomOfChat = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
@@ -745,7 +751,7 @@ export default function Home() {
             variant="outline"
             size="icon"
             className="mr-2"
-            onClick={handleNewChat}
+            onClick={scrollToBottomOfChat}
           >
             <ArrowDown size={18} />
           </Button>
