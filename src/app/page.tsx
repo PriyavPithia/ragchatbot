@@ -130,6 +130,11 @@ export default function Home() {
     }
   }, []);
 
+  // Add this new effect to scroll when messages change
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [messages, scrollToBottom]);
+
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
@@ -265,7 +270,8 @@ export default function Home() {
         return newSet;
       });
       console.log('Finished setting active chat');
-      setTimeout(() => scrollToBottom(false), 100);
+      // Use a short timeout to ensure the messages are rendered before scrolling
+      setTimeout(() => scrollToBottom(false), 50);
     }
   }, [supabase, scrollToBottom]);
 
@@ -361,7 +367,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom after adding user's message
-    setTimeout(() => scrollToBottom(false), 50);
+    setTimeout(() => scrollToBottom(true), 50);
 
     try {
       await supabase.from('messages').insert([newUserMessage]);
@@ -624,7 +630,7 @@ export default function Home() {
           </div>
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
             {renderTabContent}
           </main>
         </div>
