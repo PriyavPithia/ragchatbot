@@ -115,7 +115,7 @@ export function ApiKey() {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 md:pt-0 pt-20">
       <h2 className="text-lg font-semibold mb-4">API Key</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input

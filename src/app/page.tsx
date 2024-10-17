@@ -732,7 +732,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16">
+      <div className="flex flex-1 overflow-hidden pt-16"> {/* Added pt-16 to account for header height */}
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
