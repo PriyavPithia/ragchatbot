@@ -115,7 +115,7 @@ export function ApiKey() {
   };
 
   return (
-    <div className="p-4 md:p-4 pt-20 md:pt-4"> {/* Adjusted padding for mobile and desktop */}
+    <div className="p-4 h-full md:p-4 pt-[100px] md:pt-4"> {/* Adjusted padding for mobile and desktop */}
       <h2 className="text-lg font-semibold mb-4">API Key</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
