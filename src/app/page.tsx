@@ -35,43 +35,22 @@ type Message = {
 };
 
 const MemoizedMessage = memo(({ message }: { message: Message }) => (
-  <div className={`py-8 ${message.role === 'user' ? 'bg-white' : 'bg-gray-50'}`}>
-    <div className="max-w-3xl mx-auto flex space-x-6 px-4">
-      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-        {message.role === 'user' ? (
-          <User size={20} />
-        ) : (
-          <Bot size={20} />
-        )}
-      </div>
-      <div className="flex-grow">
-        <ReactMarkdown
-          components={{
-            p: ({ node, ...props }) => <p className="mb-4 text-gray-800" {...props} />,
-            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-4" {...props} />,
-            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-4" {...props} />,
-            li: ({ node, ...props }) => <li className="mb-2" {...props} />,
-            code: (props) => {
-              const { className, children, ...rest } = props;
-              const match = /language-(\w+)/.exec(className || '');
-              const isInline = !match && !children?.toString().includes('\n');
-              return isInline ? (
-                <code className="bg-gray-100 rounded px-1 py-0.5" {...rest}>
-                  {children}
-                </code>
-              ) : (
-                <pre className="bg-gray-100 rounded p-4 overflow-x-auto">
-                  <code className={className} {...rest}>
-                    {children}
-                  </code>
-                </pre>
-              );
-            },
-          }}
-        >
-          {message.content}
-        </ReactMarkdown>
-      </div>
+  <div className={`mb-6 ${message.role === 'user' ? 'ml-auto' : 'mr-auto'} max-w-[80%]`}>
+    <div className={`rounded-lg p-4 ${
+      message.role === 'user'
+        ? 'bg-primary text-primary-foreground ml-auto'
+        : 'bg-secondary text-secondary-foreground'
+    }`}>
+      <ReactMarkdown
+        components={{
+          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
+          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
+          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+        }}
+      >
+        {message.content}
+      </ReactMarkdown>
     </div>
   </div>
 ));
@@ -572,58 +551,9 @@ export default function Home() {
     messages
       .filter(message => message.chat_id === activeChat)
       .map((message, index) => (
-        <div
-          key={index}
-          className={`mb-6 ${
-            message.role === 'user'
-              ? 'ml-auto'
-              : 'mr-auto w-full'
-          }`}
-        >
-          <div className={`rounded-lg ${
-            message.role === 'user'
-              ? 'bg-primary text-primary-foreground inline-block py-2 px-3'
-              : 'bg-secondary text-secondary-foreground p-4 w-full'
-          }`}>
-            <ReactMarkdown
-              components={{
-                p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-3" {...props} />,
-                ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-3" {...props} />,
-                li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-            {message.role === 'bot' && (
-              <div className="flex justify-start space-x-2 mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(message.content, index)}
-                  className="h-8 w-8"
-                >
-                  {copiedIndex === index ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <Copy className="h-5 w-5" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => regenerateResponse(index)}
-                  className="h-8 w-8"
-                  disabled={regeneratingIndexes.has(index)}
-                >
-                  <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <MemoizedMessage key={message.id || index} message={message} />
       )),
-    [messages, activeChat, copyToClipboard, regenerateResponse, copiedIndex, regeneratingIndexes]
+    [messages, activeChat]
   );
 
   const renderTabContent = useMemo(() => {
@@ -631,39 +561,30 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <div className="flex-grow overflow-y-auto">
+            <ScrollArea className="flex-grow px-8 py-8" ref={scrollAreaRef}>
               {memoizedMessages}
               {isLoading && (
-                <div className="py-8 bg-white">
-                  <div className="max-w-3xl mx-auto flex space-x-6 px-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                      <img src="/bot-avatar.png" alt="AI" className="w-6 h-6" />
-                    </div>
-                    <div className="flex-grow">
-                      <LoadingDots />
-                    </div>
-                  </div>
+                <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto">
+                  <LoadingDots />
                 </div>
               )}
               <div ref={messagesEndRef} />
-            </div>
-            <div className="border-t bg-white py-4">
-              <div className="max-w-3xl mx-auto px-4">
-                <form onSubmit={handleSendMessage} className="flex space-x-4">
-                  <Input
-                    name="message"
-                    placeholder="Type your message..."
-                    className="flex-grow focus:ring-2 focus:ring-blue-500"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="off"
-                  />
-                  <Button type="submit" disabled={isLoading} className="bg-blue-500 hover:bg-blue-600 text-white">
-                    <Send className="h-5 w-5" />
-                  </Button>
-                </form>
-              </div>
+            </ScrollArea>
+            <div className="border-t bg-white py-4 px-8">
+              <form onSubmit={handleSendMessage} className="flex space-x-4 max-w-3xl mx-auto">
+                <Input
+                  name="message"
+                  placeholder="Type your message..."
+                  className="flex-grow focus:ring-2 focus:ring-blue-500"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+                <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
+                  <Send className="h-5 w-5" />
+                </Button>
+              </form>
             </div>
           </div>
         );
@@ -713,7 +634,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16 pb-16"> {/* Added pb-16 to account for the footer height */}
+      <div className="flex flex-1 overflow-hidden pt-16">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -735,24 +656,6 @@ export default function Home() {
           </main>
         </div>
       </div>
-      {activeTab === 'chat' && chats.length > 0 && activeChat && (
-        <footer className={`p-2 sm:p-4 border-t fixed bottom-0 left-0 right-0 bg-background z-10`}>
-          <form onSubmit={handleSendMessage} className="flex space-x-2 w-full max-w-3xl mx-auto">
-            <Input
-              name="message"
-              placeholder="Type your message..."
-              className="flex-1 focus:ring-2 focus:ring-blue-500"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              disabled={isLoading}
-              autoComplete="off"
-            />
-            <Button type="submit" disabled={isLoading} className="bg-blue-500 hover:bg-blue-600 text-white">
-              <Send className="h-5 w-5" />
-            </Button>
-          </form>
-        </footer>
-      )}
     </div>
   );
 }
