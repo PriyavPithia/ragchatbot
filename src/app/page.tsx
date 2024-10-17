@@ -125,7 +125,7 @@ export default function Home() {
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
       setShowScrollButton(!isAtBottom);
     }
   }, []);
@@ -361,7 +361,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom after adding user's message
-    scrollToBottom(true);
+    setTimeout(() => scrollToBottom(true), 100);
 
     try {
       await supabase.from('messages').insert([newUserMessage]);
@@ -392,7 +392,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
       // Scroll to bottom after adding bot's message
-      scrollToBottom(true);
+      setTimeout(() => scrollToBottom(true), 100);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -595,7 +595,7 @@ export default function Home() {
           </main>
           {showScrollButton && (
             <Button
-              className="fixed bottom-20 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg"
+              className="fixed bottom-20 right-4 rounded-full p-2 bg-primary text-primary-foreground shadow-lg z-50"
               onClick={() => scrollToBottom(true)}
             >
               <ArrowDown size={24} />
