@@ -189,10 +189,29 @@ export default function Home() {
     }
   }, [apiKey, activeKnowledgeBaseContent]);
 
-  const handleNewChat = useCallback(() => {
-    // ... existing new chat logic ...
-    triggerScroll();
-  }, [triggerScroll]);
+  const handleNewChat = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .insert({ user_id: user?.id, name: 'New Chat' })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setChats(prevChats => [data, ...prevChats]);
+        setActiveChat(data.id);
+        dispatchMessages({ type: 'CLEAR_MESSAGES' });
+        triggerScroll();
+      } else {
+        throw new Error('No data returned from database');
+      }
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+      // You might want to show an error message to the user here
+    }
+  }, [user, supabase, setActiveChat, dispatchMessages, triggerScroll]);
 
   // New function to add user message immediately
   const addUserMessage = useCallback((message: string) => {
