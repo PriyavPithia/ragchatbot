@@ -155,7 +155,7 @@ export function KnowledgeBase() {
   };
 
   return (
-    <div className="w-full h-full p-4 md:p-4 pt-[110px] pb-[110px]  md:pt-4"> {/* Adjusted padding for mobile and desktop */}
+    <div className="w-full h-full p-4 md:p-4 pt-[120px]  md:pt-4"> {/* Adjusted padding for mobile and desktop */}
       <h2 className="text-2xl font-bold mb-4">Knowledge Base</h2>
       <p className="text-muted-foreground mb-6">Upload and manage your knowledge base files</p>
       
@@ -203,7 +203,7 @@ export function KnowledgeBase() {
         )}
         
         {activeKnowledgeBase && (
-          <p className="text-sm text-muted-foreground mb-8">
+          <p className="text-sm text-muted-foreground mb-[100px]">
             Active Knowledge Base: {uploadedFiles.find(f => f.id === activeKnowledgeBase)?.name}
           </p>
         )}
