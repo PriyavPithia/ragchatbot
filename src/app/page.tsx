@@ -72,6 +72,7 @@ export default function Home() {
   const [geminiChat, setGeminiChat] = useState<ChatSession | null>(null)
   const [message, setMessage] = useState('')
   const [showScrollButton, setShowScrollButton] = useState(false); // Define state for scroll button
+  const [activeKnowledgeBaseContent, setActiveKnowledgeBaseContent] = useState<string | null>(null);
 
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -237,6 +238,33 @@ export default function Home() {
     }
   }, [user, fetchApiKey]);
 
+  const fetchActiveKnowledgeBaseContent = useCallback(async () => {
+    const activeKBId = localStorage.getItem('activeKnowledgeBase');
+    if (activeKBId && user) {
+      try {
+        const { data, error } = await supabase
+          .from('knowledgebases')
+          .select('content')
+          .eq('id', activeKBId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setActiveKnowledgeBaseContent(data.content);
+        }
+      } catch (error) {
+        console.error('Error fetching active knowledge base content:', error);
+      }
+    }
+  }, [user, supabase]);
+
+  useEffect(() => {
+    if (user) {
+      fetchActiveKnowledgeBaseContent();
+    }
+  }, [user, fetchActiveKnowledgeBaseContent]);
+
   const generateResponse = async (prompt: string): Promise<string> => {
     if (!apiKey) {
       throw new Error("API key is not set");
@@ -246,7 +274,12 @@ export default function Home() {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
     try {
-      const result = await model.generateContent(prompt);
+      let fullPrompt = prompt;
+      if (activeKnowledgeBaseContent) {
+        fullPrompt = `Given the following context:\n\n${activeKnowledgeBaseContent}\n\nPlease answer the following question: ${prompt}`;
+      }
+
+      const result = await model.generateContent(fullPrompt);
       const response = result.response;
       return response.text();
     } catch (error) {
@@ -300,7 +333,7 @@ export default function Home() {
       setIsLoading(false);
       setTimeout(() => scrollToBottom(true), 100);
     }
-  }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
+  }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom, activeKnowledgeBaseContent]);
 
   const handleNewChat = async () => {
     console.log('handleNewChat called in Home component');
