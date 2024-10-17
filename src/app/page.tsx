@@ -58,27 +58,27 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
           {message.content}
         </ReactMarkdown>
         {message.role === 'bot' && (
-          <div className="flex justify-end space-x-2 mt-2 border-t pt-2">
+          <div className="flex justify-start space-x-2 mt-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => copyToClipboard(message.content, index)}
-              className="h-8 w-8"
+              className="h-9 w-9"
             >
               {copiedIndex === index ? (
-                <Check className="h-4 w-4" />
+                <Check className="h-5 w-5" />
               ) : (
-                <Copy className="h-4 w-4" />
+                <Copy className="h-5 w-5" />
               )}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => regenerateResponse(index)}
-              className="h-8 w-8"
+              className="h-9 w-9"
               disabled={regeneratingIndexes.has(index)}
             >
-              <RefreshCw className={`h-4 w-4 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-5 w-5 ${regeneratingIndexes.has(index) ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         )}
@@ -352,6 +352,13 @@ export default function Home() {
     }
   };
 
+  // Add this new effect to scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].role === 'bot') {
+      scrollToBottom(true);
+    }
+  }, [messages, scrollToBottom]);
+
   const handleSendMessage = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
     if (!inputMessage.trim() || !activeChat) return;
@@ -367,7 +374,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom after adding user's message
-    setTimeout(() => scrollToBottom(true), 50);
+    scrollToBottom(true);
 
     try {
       await supabase.from('messages').insert([newUserMessage]);
@@ -376,8 +383,6 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    // Scroll to show loading dots
-    setTimeout(() => scrollToBottom(true), 50);
 
     try {
       console.log('Generating response for message:', inputMessage);
@@ -399,8 +404,6 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
-      // Scroll to bottom after adding bot's message
-      setTimeout(() => scrollToBottom(true), 50);
     }
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
