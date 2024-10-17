@@ -237,9 +237,28 @@ export default function Home() {
   }, [user, fetchApiKey]);
 
   const generateResponse = async (prompt: string): Promise<string> => {
-    // Implement your logic to generate a response
+    // Implement your logic to generate a response using the Gemini API
     // Ensure this function returns a string
-    return "Generated response"; // Placeholder
+    try {
+      const response = await fetch('https://api.gemini.com/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({ model: MODEL_NAME, prompt })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch response from Gemini API');
+      }
+
+      const data = await response.json();
+      return data.response || 'Sorry, I could not generate a response.';
+    } catch (error) {
+      console.error('Error generating response:', error);
+      return 'Sorry, I encountered an error while generating a response.';
+    }
   };
 
   const handleSendMessage = useCallback(async (event: React.FormEvent) => {
@@ -258,7 +277,7 @@ export default function Home() {
     setInputMessage('');
     
     // Scroll to bottom immediately after adding user's message
-    scrollToBottom(true);
+    setTimeout(() => scrollToBottom(true), 100);
 
     // Save the user's message to the database immediately
     try {
@@ -268,8 +287,6 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    // Scroll to show loading dots
-    setTimeout(() => scrollToBottom(true), 100);
 
     try {
       console.log('Generating response for message:', inputMessage);
