@@ -540,7 +540,7 @@ export default function Home() {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <div className={`flex-grow overflow-y-auto hide-scrollbar py-4 pb-2 ${isMobile ? 'px-2' : 'px-4'}`} ref={scrollAreaRef}>
+            <div className={`flex-grow overflow-y-auto hide-scrollbar py-4 ${isMobile ? 'px-2' : 'px-4'}`} ref={scrollAreaRef}>
               {loadingChats.has(activeChat || '') ? (
                 <div className="flex justify-center items-center h-full">
                   <LoadingDots />
@@ -554,6 +554,8 @@ export default function Home() {
                     </div>
                   )}
                   <div ref={lastMessageRef} style={{ height: '1px' }} />
+                  {/* Add extra padding at the bottom */}
+                  <div className="h-32" /> {/* Adjust this value as needed */}
                 </>
               )}
             </div>
@@ -605,7 +607,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16 pb-20"> {/* Increased bottom padding */}
+      <div className="flex flex-1 overflow-hidden pt-16"> {/* Remove bottom padding */}
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
