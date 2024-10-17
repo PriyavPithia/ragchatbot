@@ -35,11 +35,11 @@ type Message = {
 };
 
 const MemoizedMessage = memo(({ message }: { message: Message }) => (
-  <div className={`mb-6 ${message.role === 'user' ? 'ml-auto' : 'mr-auto'} max-w-[80%]`}>
+  <div className={`mb-6 ${message.role === 'user' ? 'ml-auto' : 'mr-auto'}`}>
     <div className={`rounded-lg p-4 ${
       message.role === 'user'
-        ? 'bg-primary text-primary-foreground ml-auto'
-        : 'bg-secondary text-secondary-foreground'
+        ? 'bg-primary text-primary-foreground ml-auto inline-block max-w-[80%]'
+        : 'bg-secondary text-secondary-foreground w-full max-w-[80%]'
     }`}>
       <ReactMarkdown
         components={{
@@ -82,25 +82,24 @@ export default function Home() {
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  const [autoScroll, setAutoScroll] = useState(true);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
+    if (lastMessageRef.current && shouldAutoScroll) {
+      lastMessageRef.current.scrollIntoView({
         behavior: smooth ? 'smooth' : 'auto',
         block: 'end',
       });
     }
-  }, []);
+  }, [shouldAutoScroll]);
 
   const handleScroll = useCallback(() => {
     if (scrollAreaRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 1;
-      setAutoScroll(isAtBottom);
-      setShowScrollButton(!isAtBottom);
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setShouldAutoScroll(isAtBottom);
     }
   }, []);
 
@@ -113,10 +112,10 @@ export default function Home() {
   }, [handleScroll]);
 
   useEffect(() => {
-    if (autoScroll) {
+    if (shouldAutoScroll) {
       scrollToBottom(false);
     }
-  }, [messages, autoScroll, scrollToBottom]);
+  }, [messages, shouldAutoScroll, scrollToBottom]);
 
   const fetchChats = useCallback(async () => {
     if (user) {
@@ -209,7 +208,7 @@ export default function Home() {
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     setActiveChat(chatId);
     setIsLoading(true);
-    setMessages([]); // Clear messages immediately to reduce flashing
+    setMessages([]);
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -223,7 +222,7 @@ export default function Home() {
       console.error('Error fetching messages:', error);
     } finally {
       setIsLoading(false);
-      // Scroll to bottom after loading messages
+      setShouldAutoScroll(true);
       setTimeout(() => scrollToBottom(false), 100);
     }
   }, [supabase, scrollToBottom]);
@@ -395,7 +394,7 @@ export default function Home() {
       setTimeout(() => scrollToBottom(true), 100);
     }
 
-    setAutoScroll(true);
+    setShouldAutoScroll(true);
     scrollToBottom(false);
   }, [inputMessage, activeChat, apiKey, generateResponse, supabase, scrollToBottom]);
 
@@ -523,8 +522,13 @@ export default function Home() {
   const memoizedMessages = useMemo(() => 
     messages
       .filter(message => message.chat_id === activeChat)
-      .map((message, index) => (
-        <MemoizedMessage key={message.id || index} message={message} />
+      .map((message, index, array) => (
+        <div
+          key={message.id || index}
+          ref={index === array.length - 1 ? lastMessageRef : null}
+        >
+          <MemoizedMessage message={message} />
+        </div>
       )),
     [messages, activeChat]
   );
@@ -541,19 +545,7 @@ export default function Home() {
                   <LoadingDots />
                 </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
-            {showScrollButton && (
-              <Button
-                className="fixed bottom-24 right-4 rounded-full p-2 z-50 bg-primary text-primary-foreground shadow-lg"
-                onClick={() => {
-                  setAutoScroll(true);
-                  scrollToBottom();
-                }}
-              >
-                <ArrowDown size={24} />
-              </Button>
-            )}
           </div>
         );
       case 'knowledgebase':
@@ -563,7 +555,7 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, isLoading, showScrollButton, scrollToBottom]);
+  }, [activeTab, memoizedMessages, isLoading]);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -625,16 +617,17 @@ export default function Home() {
         </div>
       </div>
       {activeTab === 'chat' && (
-        <div className="border-t bg-white py-4 px-8 fixed bottom-0 left-0 right-0 z-20">
-          <form onSubmit={handleSendMessage} className="flex space-x-4 max-w-3xl mx-auto">
+        <div className="border-t bg-white py-2 fixed bottom-0 left-0 right-0 z-50">
+          <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto px-2">
             <Input
               name="message"
               placeholder="Type your message..."
-              className="flex-grow focus:ring-2 focus:ring-blue-500"
+              className="flex-grow focus:ring-2 focus:ring-blue-500 text-lg"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               disabled={isLoading}
               autoComplete="off"
+              style={{ fontSize: '16px' }} // Prevent zoom on mobile
             />
             <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800 text-white">
               <Send className="h-5 w-5" />
