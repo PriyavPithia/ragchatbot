@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from 'next/navigation';
+import { User } from '@supabase/supabase-js'; // Import User type
 
 type SidebarProps = {
   activeTab: string;
@@ -23,6 +24,7 @@ type SidebarProps = {
   onNewChat: () => void;
   onRenameChat: (chatId: string, newName: string) => void;
   message?: string;
+  user: User | null; // Add user prop
 };
 
 export function Sidebar({ 
@@ -34,9 +36,10 @@ export function Sidebar({
   onDeleteChat, 
   onNewChat,
   onRenameChat,
-  message 
+  message,
+  user, // Add user to destructured props
 }: SidebarProps) {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingChatName, setEditingChatName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +69,25 @@ export function Sidebar({
 
   return (
     <div className="h-full flex flex-col">
+      {/* User Profile Section */}
+      {user && (
+        <div className="p-4 border-b">
+          <div className="flex items-center space-x-3">
+            {user.user_metadata.avatar_url && (
+              <img 
+                src={user.user_metadata.avatar_url} 
+                alt="User Avatar" 
+                className="w-10 h-10 rounded-full"
+              />
+            )}
+            <div>
+              <p className="font-semibold">{user.user_metadata.full_name || user.email}</p>
+              <p className="text-sm text-gray-500">{user.email}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="p-2">
         
       </div>
@@ -118,7 +140,7 @@ export function Sidebar({
               {chats.map((chat) => (
                 <div 
                   key={chat.id} 
-                  className={`flex items-center justify-between p-2 ${
+                  className={`flex items-center justify-between pl-5 pr-2 pt-1 pb-1 ${
                     activeChat === chat.id ? 'bg-secondary' : 'hover:bg-secondary/50'
                   }`}
                 >
@@ -129,7 +151,7 @@ export function Sidebar({
                       onChange={(e) => setEditingChatName(e.target.value)}
                       onBlur={() => handleRenameChat(chat.id)}
                       onKeyPress={(e) => e.key === 'Enter' && handleRenameChat(chat.id)}
-                      className="flex-grow mr-2 h-8 text-sm focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-transparent"
+                      className="flex-grow mr-2 h-8 text-[16px] focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-transparent"
                     />
                   ) : (
                     <>
@@ -139,7 +161,7 @@ export function Sidebar({
                         }`}
                         onClick={() => setActiveChat(chat.id)}
                       >
-                        <MessageSquare size={18} />
+                        
                         <span>{chat.name}</span>
                       </button>
                       <DropdownMenu>

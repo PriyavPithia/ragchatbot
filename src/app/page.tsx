@@ -79,10 +79,10 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
       }`}>
         <ReactMarkdown
           components={{
-            p: ({ node, ...props }) => <p className="mb-1 text-sm" {...props} />,
-            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 text-sm" {...props} />,
-            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 text-sm" {...props} />,
-            li: ({ node, ...props }) => <li className="mb-1 text-sm" {...props} />,
+            p: ({ node, ...props }) => <p className="mb-1 text-sm md:text-base" {...props} />,
+            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 text-sm md:text-base" {...props} />,
+            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 text-sm md:text-base" {...props} />,
+            li: ({ node, ...props }) => <li className="mb-1 text-sm md:text-base" {...props} />,
           }}
         >
           {message.content}
@@ -769,6 +769,7 @@ export default function Home() {
               onNewChat={handleNewChat}
               onRenameChat={handleRenameChat}
               message={message}
+              user={user} // Pass the user object to Sidebar
             />
           </div>
         )}
