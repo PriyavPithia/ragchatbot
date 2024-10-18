@@ -199,13 +199,13 @@ export function Sidebar({
         )}
       </div>
 
-      <div className="px-2 py-3 mt-auto">
+      <div className="px-2 py-3 mt-auto border-t">
         <Button
           variant="ghost"
           className="w-full justify-start text-sm py-2 h-10"
           onClick={handleLogout}
         >
-          <LogOut size={18} className="mr-2" />
+          <LogOut size={18} className="mr-2 " />
           Logout
         </Button>
       </div>

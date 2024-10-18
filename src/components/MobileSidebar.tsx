@@ -65,16 +65,7 @@ export function MobileSidebar({
               user={user}
             />
           </div>
-          <div className="p-4 border-t">
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => { onLogout(); setOpen(false); }}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          </div>
+          
         </div>
       </SheetContent>
     </Sheet>
