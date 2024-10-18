@@ -733,7 +733,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 sticky top-0 left-0 right-0">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 md:sticky md:top-0 fixed top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           <Button
@@ -773,7 +773,7 @@ export default function Home() {
           </div>
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
-          <main className="flex-1 overflow-y-auto pb-[60px]"> {/* Changed pb-24 to pb-[60px] */}
+          <main className="flex-1 overflow-y-auto pb-[60px] md:pt-0 pt-16"> {/* Added md:pt-0 pt-16 */}
             {renderTabContent}
           </main>
           {activeTab === 'chat' && activeChat && (
