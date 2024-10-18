@@ -6,5 +6,5 @@ export default function Auth() {
     <div className="flex items-center justify-center min-h-screen bg-background">
       <AuthForm />
     </div>
-  )
+  );
 }
