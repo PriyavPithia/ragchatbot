@@ -42,7 +42,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false)
 
       if (session) {
-        router.push('/')
+        const storedApiKey = localStorage.getItem('geminiApiKey')
+        if (storedApiKey) {
+          setApiKey(storedApiKey)
+        }
       }
     }
 

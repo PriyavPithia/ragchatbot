@@ -43,13 +43,10 @@ export function KnowledgeBase() {
   };
 
   useEffect(() => {
-    console.log('KnowledgeBase component effect', { user })
     if (user) {
-      console.log('User authenticated:', user.id);
       fetchUploadedFiles();
       fetchActiveKnowledgeBase();
     } else {
-      console.log('User not authenticated');
       setMessage('Please log in to manage knowledge bases');
     }
   }, [user]);
@@ -86,10 +83,10 @@ export function KnowledgeBase() {
 
       setMessage(`File ${result.isUpdate ? 'updated' : 'uploaded'} successfully`);
       
-      // If it's a new knowledge base, set it as active
-      if (!result.isUpdate && result.newKnowledgeBaseId) {
-        setActiveKnowledgeBase(result.newKnowledgeBaseId);
-        localStorage.setItem('activeKnowledgeBase', result.newKnowledgeBaseId);
+      // If it's a new knowledge base or an update, set it as active and load its content
+      if (result.newKnowledgeBaseId || result.updatedKnowledgeBaseId) {
+        const newActiveId = result.newKnowledgeBaseId || result.updatedKnowledgeBaseId;
+        await setAsActiveKnowledgeBase(newActiveId);
       }
 
       await fetchUploadedFiles();
@@ -115,6 +112,12 @@ export function KnowledgeBase() {
 
       setMessage('File removed successfully');
       await fetchUploadedFiles();
+
+      // If the removed file was the active knowledge base, clear it
+      if (activeKnowledgeBase === fileId) {
+        setActiveKnowledgeBase(null);
+        localStorage.removeItem('activeKnowledgeBase');
+      }
     } catch (error: any) {
       console.error('Error removing file:', error);
       setMessage(`Error removing file: ${error.message}`);
@@ -126,7 +129,28 @@ export function KnowledgeBase() {
     try {
       setActiveKnowledgeBase(fileId);
       localStorage.setItem('activeKnowledgeBase', fileId);
-      setMessage('Active knowledge base set');
+
+      // Fetch the content of the active knowledge base
+      const { data, error } = await supabase
+        .from('knowledgebases')
+        .select('content')
+        .eq('id', fileId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        // Store the content in localStorage for immediate access
+        localStorage.setItem('activeKnowledgeBaseContent', data.content);
+        
+        // Dispatch a custom event to notify the Home component
+        const event = new CustomEvent('activeKnowledgeBaseChanged', { 
+          detail: { content: data.content, id: fileId }
+        });
+        window.dispatchEvent(event);
+
+        setMessage('Active knowledge base set and loaded');
+      }
     } catch (error) {
       console.error('Error setting active knowledge base:', error);
       setMessage('Error setting active knowledge base');

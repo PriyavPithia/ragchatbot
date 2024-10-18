@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, Check, ArrowDown, LogOut, Plus } from 'lucide-react'
+import { Send, Copy, Check, ArrowDown, LogOut, Plus, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MobileSidebar } from '../components/MobileSidebar'
@@ -542,18 +542,49 @@ export default function Home() {
     }
   }, [user, supabase, fetchMessages]);
 
+  const fetchActiveKnowledgeBaseContent = useCallback(async () => {
+    const storedActiveKB = localStorage.getItem('activeKnowledgeBase');
+    if (storedActiveKB && user) {
+      try {
+        // First, try to get the content from localStorage
+        const storedContent = localStorage.getItem('activeKnowledgeBaseContent');
+        if (storedContent) {
+          setActiveKnowledgeBaseContent(storedContent);
+        } else {
+          // If not in localStorage, fetch from the database
+          const { data, error } = await supabase
+            .from('knowledgebases')
+            .select('content')
+            .eq('id', storedActiveKB)
+            .eq('user_id', user.id)
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            setActiveKnowledgeBaseContent(data.content);
+            // Store the content in localStorage for future use
+            localStorage.setItem('activeKnowledgeBaseContent', data.content);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching active knowledge base content:', error);
+      }
+    }
+  }, [user, supabase]);
+
   useEffect(() => {
     console.log('Home component effect', { authLoading, user })
     if (!authLoading) {
       if (user) {
-        console.log('User authenticated, fetching chats')
+        console.log('User authenticated:', user.id)
         fetchChats()
+        fetchActiveKnowledgeBaseContent()
       } else {
         console.log('No user found, redirecting to auth page')
         router.push('/auth')
       }
     }
-  }, [user, authLoading, router, fetchChats])
+  }, [user, authLoading, router, fetchChats, fetchActiveKnowledgeBaseContent])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -609,29 +640,11 @@ export default function Home() {
     }
   };
 
-  const fetchActiveKnowledgeBaseContent = useCallback(async () => {
-    if (activeKnowledgeBase && user) {
-      try {
-        const { data, error } = await supabase
-          .from('knowledgebases')
-          .select('content')
-          .eq('id', activeKnowledgeBase)
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          setActiveKnowledgeBaseContent(data.content);
-        }
-      } catch (error) {
-        console.error('Error fetching active knowledge base content:', error);
-      }
-    }
-  }, [activeKnowledgeBase, user, supabase]);
-
   useEffect(() => {
-    fetchActiveKnowledgeBaseContent();
-  }, [activeKnowledgeBase, fetchActiveKnowledgeBaseContent]);
+    if (user) {
+      fetchActiveKnowledgeBaseContent();
+    }
+  }, [user, fetchActiveKnowledgeBaseContent]);
 
   // Add this useEffect to scroll to bottom when messages change or component mounts
   useEffect(() => {
@@ -709,6 +722,17 @@ export default function Home() {
     }
   }, []);
 
+  // Add this new function
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === 'chat') {
+      // Use setTimeout to ensure the DOM has updated before scrolling
+      setTimeout(() => {
+        scrollToBottomOfChat();
+      }, 0);
+    }
+  };
+
   useEffect(() => {
     if (activeChat && isInitialLoad) {
       handleSetActiveChat(activeChat);
@@ -721,6 +745,19 @@ export default function Home() {
       setActiveChat(chats[0].id);
     }
   }, [user, chats, activeChat]);
+
+  useEffect(() => {
+    const handleActiveKnowledgeBaseChange = (event: CustomEvent) => {
+      setActiveKnowledgeBaseContent(event.detail.content);
+      setGlobalActiveKnowledgeBase(event.detail.id);
+    };
+
+    window.addEventListener('activeKnowledgeBaseChanged', handleActiveKnowledgeBaseChange as EventListener);
+
+    return () => {
+      window.removeEventListener('activeKnowledgeBaseChanged', handleActiveKnowledgeBaseChange as EventListener);
+    };
+  }, []);
 
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
@@ -754,7 +791,7 @@ export default function Home() {
             onNewChat={handleNewChat}
             onRenameChat={handleRenameChat}
             user={user}
-            onLogout={handleLogout} // Add this line
+            onLogout={handleLogout}
           />
         </div>
       </header>
@@ -763,7 +800,7 @@ export default function Home() {
           <div className="w-64 border-r flex flex-col">
             <Sidebar
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={handleTabChange}
               activeChat={activeChat}
               setActiveChat={handleSetActiveChat}
               chats={chats}
@@ -771,12 +808,12 @@ export default function Home() {
               onNewChat={handleNewChat}
               onRenameChat={handleRenameChat}
               message={message}
-              user={user} // Pass the user object to Sidebar
+              user={user}
             />
           </div>
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
-          <main className="flex-1 overflow-y-auto pb-[60px] md:pt-0 pt-16"> {/* Added md:pt-0 pt-16 */}
+          <main className="flex-1 overflow-y-auto pb-[60px] md:pt-0 pt-16">
             {renderTabContent}
           </main>
           {activeTab === 'chat' && activeChat && (
