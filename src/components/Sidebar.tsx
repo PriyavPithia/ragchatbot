@@ -140,7 +140,7 @@ export function Sidebar({
               {chats.map((chat) => (
                 <div 
                   key={chat.id} 
-                  className={`flex items-center justify-between pl-5 pr-2 pt-1 pb-1 ${
+                  className={`flex items-center justify-between pl-5 pr-2 pt-2 pb-2 ${
                     activeChat === chat.id ? 'bg-secondary' : 'hover:bg-secondary/50'
                   }`}
                 >

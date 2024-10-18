@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Menu } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Sidebar } from '@/components/Sidebar'
+import React from 'react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Menu } from 'lucide-react';
+import { Sidebar } from './Sidebar';
+import { User } from '@supabase/supabase-js';
 
 type MobileSidebarProps = {
   activeTab: string;
@@ -13,54 +14,41 @@ type MobileSidebarProps = {
   onDeleteChat: (chatId: string) => void;
   onNewChat: () => void;
   onRenameChat: (chatId: string, newName: string) => void;
+  user: User | null;
 };
 
-export function MobileSidebar({ 
-  activeTab, 
-  setActiveTab, 
-  activeChat, 
+export function MobileSidebar({
+  activeTab,
+  setActiveTab,
+  activeChat,
   setActiveChat,
   chats,
   onDeleteChat,
   onNewChat,
-  onRenameChat
+  onRenameChat,
+  user,
 }: MobileSidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    setIsOpen(false);
-  };
-
-  const handleNewChat = () => {
-    console.log('New chat button clicked in MobileSidebar');
-    onNewChat();
-    setIsOpen(false);
-  };
-
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-5 w-5" />
+        <Button variant="outline" size="icon" className="md:hidden">
+          <Menu className="h-[1.2rem] w-[1.2rem]" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[300px] p-0">
-        <div className="h-full py-4">
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={handleTabChange}
-            activeChat={activeChat}
-            setActiveChat={(chatId) => {
-              setActiveChat(chatId);
-              setIsOpen(false);
-            } }
-            chats={chats}
-            onDeleteChat={onDeleteChat}
-            onNewChat={handleNewChat}
-            onRenameChat={onRenameChat} message={''} user={null}          />
-        </div>
+      <SheetContent side="left" className="w-[300px] sm:w-[400px]">
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          activeChat={activeChat}
+          setActiveChat={setActiveChat}
+          chats={chats}
+          onDeleteChat={onDeleteChat}
+          onNewChat={onNewChat}
+          onRenameChat={onRenameChat}
+          message=""
+          user={user}
+        />
       </SheetContent>
     </Sheet>
-  )
+  );
 }
