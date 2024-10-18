@@ -17,7 +17,6 @@ export function AuthForm() {
         view="sign_in"
         showLinks={false}
         socialLayout="horizontal"
-  
       />
     </div>
   );
