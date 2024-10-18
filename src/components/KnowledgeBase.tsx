@@ -13,7 +13,6 @@ export function KnowledgeBase() {
   const [activeKnowledgeBase, setActiveKnowledgeBase] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const { user } = useAuth();
-  const MODEL_NAME = "gemini-pro";
 
   const fetchUploadedFiles = async () => {
     try {
@@ -70,49 +69,29 @@ export function KnowledgeBase() {
         throw new Error('File size exceeds 10MB limit');
       }
 
-      const fileContent = await file.text();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
 
-      // Check if a file with the same name already exists
-      const { data: existingFile } = await supabase
-        .from('knowledgebases')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('name', file.name)
-        .single();
+      const response = await fetch('/api/upload-knowledge-base', {
+        method: 'POST',
+        body: formData,
+      });
 
-      let result;
-      if (existingFile) {
-        // Update existing file
-        result = await supabase
-          .from('knowledgebases')
-          .update({ content: fileContent })
-          .eq('id', existingFile.id)
-          .select();
-      } else {
-        // Insert new file
-        result = await supabase
-          .from('knowledgebases')
-          .insert({
-            user_id: user.id,
-            name: file.name,
-            content: fileContent,
-          })
-          .select();
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
       }
 
-      const { data: knowledgebaseData, error: knowledgebaseError } = result;
+      const result = await response.json();
 
-      if (knowledgebaseError) {
-        throw new Error(`Error ${existingFile ? 'updating' : 'inserting'} knowledgebase: ${knowledgebaseError.message}`);
+      setMessage(`File ${result.isUpdate ? 'updated' : 'uploaded'} successfully`);
+      
+      // If it's a new knowledge base, set it as active
+      if (!result.isUpdate && result.newKnowledgeBaseId) {
+        setActiveKnowledgeBase(result.newKnowledgeBaseId);
+        localStorage.setItem('activeKnowledgeBase', result.newKnowledgeBaseId);
       }
 
-      if (!knowledgebaseData) {
-        throw new Error(`No data returned after ${existingFile ? 'updating' : 'inserting'} knowledgebase`);
-      }
-
-      console.log('Knowledgebase entry inserted successfully');
-
-      setMessage(`File ${existingFile ? 'updated' : 'uploaded'} successfully`);
       await fetchUploadedFiles();
     } catch (error: any) {
       console.error('Error processing file:', error);
@@ -175,7 +154,7 @@ export function KnowledgeBase() {
                 </>
               )}
             </div>
-            <Input id="dropzone-file" type="file" className="hidden focus-visible:ring-transparent" onChange={handleFileUpload} disabled={isUploading} />
+            <Input id="dropzone-file" type="file" className="hidden focus-visible:ring-transparent" onChange={handleFileUpload} disabled={isUploading} accept=".txt,.pdf" />
           </Label>
         </div>
         

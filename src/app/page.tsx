@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useEffect, useState, useCallback, useRef, useMemo, useReducer, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../components/AuthProvider'
-import { Send, Copy, Check, ArrowDown, LogOut } from 'lucide-react'
+import { Send, Copy, Check, ArrowDown, LogOut, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MobileSidebar } from '../components/MobileSidebar'
@@ -149,6 +149,7 @@ export default function Home() {
   const [globalApiKey, setGlobalApiKey] = useState('');
   const [globalKnowledgeBases, setGlobalKnowledgeBases] = useState<{ id: string; name: string; content: string }[]>([]);
   const [globalActiveKnowledgeBase, setGlobalActiveKnowledgeBase] = useState<string | null>(null);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
 
   // Use useMemo to combine local and global messages
   const allMessages = useMemo(() => {
@@ -341,67 +342,8 @@ export default function Home() {
     }
   }, [generateResponse, dispatchMessages, triggerScroll]);
 
-  // Fetch messages from Supabase when activeChat changes
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!activeChat) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('chat_id', activeChat)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-      }
-    };
-
-    fetchMessages();
-  }, [activeChat, supabase, dispatchMessages]);
-
-  console.log('Rendering messages:', { localMessages, globalMessages: messages, allMessages });
-
-  // Render function
-  const renderMessages = () => {
-    return allMessages.map((message, index) => (
-      <div key={`${message.chat_id}-${index}`} className="mb-4">
-        <strong>{message.role}: </strong>
-        {message.content}
-      </div>
-    ));
-  };
-
-  const fetchChats = useCallback(async () => {
-    if (user) {
-      try {
-        console.log('Fetching chats for user:', user.id)
-        const { data, error } = await supabase
-          .from('chats')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        console.log('Fetched chats:', data)
-        setChats(data || []);
-        if (data && data.length > 0) {
-          setActiveChat(data[0].id);
-        } else {
-          setActiveChat(null);
-        }
-      } catch (error) {
-        console.error('Error fetching chats:', error);
-      }
-    }
-  }, [user, supabase]);
-
-  const fetchMessages = async (chatId: string) => {
+  const fetchMessages = useCallback(async (chatId: string) => {
+    setIsMessagesLoading(true);
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -409,83 +351,15 @@ export default function Home() {
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching messages:', error);
-        throw error;
-      }
-
+      if (error) throw error;
+      
       dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
     } catch (error) {
-      console.error('Error in fetchMessages:', error);
-    }
-  };
-
-  useEffect(() => {
-    console.log('Home component effect', { authLoading, user })
-    if (!authLoading) {
-      if (user) {
-        console.log('User authenticated, fetching chats')
-        fetchChats()
-      } else {
-        console.log('No user found, redirecting to auth page')
-        router.push('/auth')
-      }
-    }
-  }, [user, authLoading, router, fetchChats])
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobile = window.innerWidth < 768;
-      console.log('Is mobile:', isMobile);
-      setIsMobile(isMobile);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
-    const storedActiveKB = localStorage.getItem('activeKnowledgeBase');
-    if (storedActiveKB) {
-      setActiveKnowledgeBase(storedActiveKB);
-    }
-
-    const storedApiKey = localStorage.getItem('geminiApiKey');
-    if (storedApiKey) {
-      setApiKey(storedApiKey);
-    }
-  }, [setApiKey]);
-
-  useEffect(() => {
-    if (activeChat) {
-      fetchMessages(activeChat);
-      // Scroll to bottom after loading messages
-      setTimeout(() => scrollToBottom(), 100);
-    }
-  }, [activeChat, fetchMessages, scrollToBottom]);
-
-  const saveMessage = async (message: Message) => {
-    try {
-      await supabase.from('messages').insert([message]);
-    } catch (error) {
-      console.error('Error saving message to database:', error);
-    }
-  };
-
-  const fetchResponse = async (messageContent: string): Promise<Message> => {
-    setIsLoading(true);
-    try {
-      const response = await generateResponse(messageContent);
-      return { role: 'bot', content: response, chat_id: activeChat || '' };
-    } catch (error) {
-      console.error('Error fetching response:', error);
-      return { role: 'bot', content: 'Error generating response', chat_id: activeChat || '' };
+      console.error('Error fetching messages:', error);
     } finally {
-      setIsLoading(false);
+      setIsMessagesLoading(false);
     }
-  };
+  }, [supabase, dispatchMessages]);
 
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     console.log('Setting active chat:', chatId);
@@ -496,21 +370,10 @@ export default function Home() {
     try {
       console.log('Fetching messages for chat:', chatId);
       const startTime = performance.now();
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
+      await fetchMessages(chatId);
       const endTime = performance.now();
       console.log(`Fetched messages in ${endTime - startTime}ms`);
-
-      if (error) throw error;
       
-      console.log('Number of messages fetched:', data?.length);
-      dispatchMessages({ type: 'SET_MESSAGES', payload: data || [] });
-      
-      // Trigger scroll after messages are loaded
       triggerScroll();
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -522,7 +385,7 @@ export default function Home() {
       });
       console.log('Finished setting active chat');
     }
-  }, [supabase, dispatchMessages, triggerScroll]);
+  }, [fetchMessages, dispatchMessages, triggerScroll]);
 
   const handleDeleteChat = async (chatId: string) => {
     try {
@@ -593,45 +456,155 @@ export default function Home() {
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'chat':
-        return (
-          <div className="flex flex-col h-full">
-            <div className={`flex-grow overflow-y-auto py-4 ${isMobile ? 'px-2' : 'px-4'} scrollable-area`} ref={scrollAreaRef}>
-              {loadingChats.has(activeChat || '') ? (
-                <div className="flex justify-center items-center h-full">
-                  <LoadingDots />
-                </div>
-              ) : (
-                <>
-                  {memoizedMessages}
-                  {isLoading && (
-                    <>
-                      <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto relative">
-                        <LoadingDots />
-                      </div>
-                      <div className="h-16"></div> {/* Spacer visible only when loading */}
-                    </>
-                  )}
-                </>
-              )}
+        if (chats.length === 0) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full">
+              <h2 className="text-2xl font-bold mb-4">Start Chatting</h2>
+              <p className="text-muted-foreground mb-6">Begin a new conversation with AI</p>
+              <Button onClick={handleNewChat} className="flex items-center">
+                <Plus className="mr-2 h-4 w-4" />
+                New Chat
+              </Button>
             </div>
-          </div>
-        );
+          );
+        } else if (activeChat) {
+          return (
+            <div className="flex flex-col h-full">
+              <div 
+                className={`flex-grow overflow-y-auto py-4 ${
+                  isMobile ? 'px-2 pt-[100px] pb-[50px]' : 'px-4'
+                } scrollable-area transition-opacity duration-300 ease-in-out ${
+                  isMessagesLoading ? 'opacity-50' : 'opacity-100'
+                }`} 
+                ref={scrollAreaRef}
+              >
+                {isMessagesLoading ? (
+                  <div className="flex justify-center items-center h-full">
+                    <LoadingDots />
+                  </div>
+                ) : (
+                  memoizedMessages
+                )}
+                {isLoading && (
+                  <>
+                    <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto relative">
+                      <LoadingDots />
+                    </div>
+                    <div className="h-16"></div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        } else {
+          return (
+            <div className="flex flex-col items-center justify-center h-full">
+              <p className="text-muted-foreground">Select a chat or start a new one</p>
+            </div>
+          );
+        }
       case 'knowledgebase':
-        return (
-          <div className="overflow-y-auto h-full pb-16">
-            <KnowledgeBase />
-          </div>
-        );
+        return <KnowledgeBase />;
       case 'apikey':
-        return (
-          <div className="overflow-y-auto h-full pb-16">
-            <ApiKey />
-          </div>
-        );
+        return <ApiKey />;
       default:
         return null;
     }
-  }, [activeTab, memoizedMessages, loadingChats, activeChat, isMobile, isLoading]);
+  }, [activeTab, chats, activeChat, memoizedMessages, isLoading, isMobile, handleNewChat, scrollAreaRef, isMessagesLoading]);
+
+  console.log('Rendering messages:', { localMessages, globalMessages: messages, allMessages });
+
+  const fetchChats = useCallback(async () => {
+    if (user) {
+      try {
+        console.log('Fetching chats for user:', user.id)
+        const { data, error } = await supabase
+          .from('chats')
+          .select('id, name')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log('Fetched chats:', data)
+        setChats(data || []);
+        if (data && data.length > 0) {
+          setActiveChat(data[0].id);
+        } else {
+          setActiveChat(null);
+        }
+      } catch (error) {
+        console.error('Error fetching chats:', error);
+      }
+    }
+  }, [user, supabase]);
+
+  useEffect(() => {
+    console.log('Home component effect', { authLoading, user })
+    if (!authLoading) {
+      if (user) {
+        console.log('User authenticated, fetching chats')
+        fetchChats()
+      } else {
+        console.log('No user found, redirecting to auth page')
+        router.push('/auth')
+      }
+    }
+  }, [user, authLoading, router, fetchChats])
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 768;
+      console.log('Is mobile:', isMobile);
+      setIsMobile(isMobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const storedActiveKB = localStorage.getItem('activeKnowledgeBase');
+    if (storedActiveKB) {
+      setActiveKnowledgeBase(storedActiveKB);
+    }
+
+    const storedApiKey = localStorage.getItem('geminiApiKey');
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+    }
+  }, [setApiKey]);
+
+  useEffect(() => {
+    if (activeChat) {
+      fetchMessages(activeChat);
+      // Scroll to bottom after loading messages
+      setTimeout(() => scrollToBottom(), 100);
+    }
+  }, [activeChat, fetchMessages, scrollToBottom]);
+
+  const saveMessage = async (message: Message) => {
+    try {
+      await supabase.from('messages').insert([message]);
+    } catch (error) {
+      console.error('Error saving message to database:', error);
+    }
+  };
+
+  const fetchResponse = async (messageContent: string): Promise<Message> => {
+    setIsLoading(true);
+    try {
+      const response = await generateResponse(messageContent);
+      return { role: 'bot', content: response, chat_id: activeChat || '' };
+    } catch (error) {
+      console.error('Error fetching response:', error);
+      return { role: 'bot', content: 'Error generating response', chat_id: activeChat || '' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchActiveKnowledgeBaseContent = useCallback(async () => {
     if (activeKnowledgeBase && user) {
@@ -787,7 +760,7 @@ export default function Home() {
           <main className="flex-1 overflow-y-auto">
             {renderTabContent}
           </main>
-          {activeTab === 'chat' && (
+          {activeTab === 'chat' && activeChat && (
             <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} fixed bottom-0 right-0 z-20`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
                 <Input

@@ -65,25 +65,11 @@ export function Sidebar({
   };
 
   return (
-    <div className="flex flex-col h-full pt-5 text-base">
-      <div className="px-4 py-2 mb-4">
-        <div className="flex items-center space-x-3 mb-4">
-          {user?.user_metadata?.avatar_url && (
-            <Image
-              src={user.user_metadata.avatar_url}
-              alt="User Avatar"
-              width={40}
-              height={40}
-              className="rounded-full"
-            />
-          )}
-          <div>
-            <p className="font-semibold">{user?.user_metadata?.full_name || user?.email}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
-          </div>
-        </div>
+    <div className="h-full flex flex-col">
+      <div className="p-2">
+        
       </div>
-
+      
       <div className="flex-grow overflow-hidden flex flex-col">
         <div className="flex flex-col space-y-2 px-2">
           <button
