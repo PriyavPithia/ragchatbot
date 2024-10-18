@@ -15,8 +15,14 @@ import ReactMarkdown from 'react-markdown'
 import { LoadingDots } from '@/components/LoadingDots'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { Document } from "langchain/document";
+import { PromptTemplate } from "@langchain/core/prompts";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 
 const MODEL_NAME = "gemini-1.0-pro";
+const EMBEDDING_MODEL_NAME = "embedding-001";
 
 type Message = {
   role: string;
@@ -186,28 +192,94 @@ export default function Home() {
     setShouldScroll(true);
   }, []);
 
+  const cosineSimilarity = (a: number[], b: number[]): number => {
+    const dotProduct = a.reduce((sum, _, i) => sum + a[i] * b[i], 0);
+    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+    return dotProduct / (magnitudeA * magnitudeB);
+  };
+
+  const vectorizeAndProcessKnowledgeBase = async (prompt: string): Promise<string> => {
+    if (!apiKey) {
+      throw new Error("API key is not set");
+    }
+
+    if (!activeKnowledgeBaseContent) {
+      console.log("No active knowledge base content");
+      return generateResponse(prompt);
+    }
+
+    console.log("Active Knowledge Base Content (first 500 chars):", activeKnowledgeBaseContent.substring(0, 500));
+
+    const textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 500,
+      chunkOverlap: 50,
+    });
+
+    const chunks = await textSplitter.createDocuments([activeKnowledgeBaseContent]);
+    console.log(`Number of chunks: ${chunks.length}`);
+
+    const embeddings = new GoogleGenerativeAIEmbeddings({
+      apiKey: apiKey,
+      modelName: EMBEDDING_MODEL_NAME,
+    });
+
+    const chunkEmbeddings = await embeddings.embedDocuments(chunks.map(chunk => chunk.pageContent));
+    const promptEmbedding = await embeddings.embedQuery(prompt);
+
+    const similarities = chunkEmbeddings.map(embedding => 
+      cosineSimilarity(embedding, promptEmbedding)
+    );
+
+    const mostSimilarIndex = similarities.indexOf(Math.max(...similarities));
+    const mostSimilarChunk = chunks[mostSimilarIndex].pageContent;
+    const highestSimilarity = similarities[mostSimilarIndex];
+
+    console.log("Most similar chunk:", mostSimilarChunk);
+    console.log("Highest similarity score:", highestSimilarity);
+
+    const similarityThreshold = 0.3;
+
+    let fullPrompt: string;
+
+    if (highestSimilarity >= similarityThreshold) {
+      fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question in detail. If the context is relevant, base your answer on it. If it's not relevant, clearly state that the context doesn't contain relevant information and then try to answer based on your general knowledge.
+
+Context:
+${mostSimilarChunk}
+
+User's question: ${prompt}
+
+Your response:`;
+    } else {
+      fullPrompt = `You are an intelligent AI assistant. The knowledge base doesn't contain relevant information to answer the following question. Please clearly state this and then try to answer based on your general knowledge.
+
+User's question: ${prompt}
+
+Your response:`;
+    }
+
+    return generateResponse(fullPrompt);
+  };
+
   const generateResponse = useCallback(async (prompt: string): Promise<string> => {
     if (!apiKey) {
       throw new Error("API key is not set");
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const model = new ChatGoogleGenerativeAI({ apiKey, modelName: MODEL_NAME });
 
     try {
-      let fullPrompt = prompt;
-      if (activeKnowledgeBaseContent) {
-        fullPrompt = `Given the following context:\n\n${activeKnowledgeBaseContent}\n\nPlease answer the following question: ${prompt}`;
-      }
-
-      const result = await model.generateContent(fullPrompt);
-      const response = result.response;
-      return response.text();
+      const result = await model.invoke([
+        ["human", prompt],
+      ]);
+      console.log("AI Response:", result.content);
+      return typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
     } catch (error) {
       console.error('Error generating response:', error);
       throw new Error('Failed to fetch response from Gemini API');
     }
-  }, [apiKey, activeKnowledgeBaseContent]);
+  }, [apiKey]);
 
   const handleNewChat = useCallback(async () => {
     try {
@@ -326,7 +398,7 @@ export default function Home() {
     }
   }, [supabase, dispatchMessages]);
 
-  const handleSendMessage = useCallback(async (event: React.FormEvent) => {
+  const handleSendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!inputMessage.trim() || !activeChat) return;
 
@@ -340,12 +412,11 @@ export default function Home() {
     setInputMessage('');
     triggerScroll();
 
-    // Save user message to Supabase
     await saveMessageToSupabase(userMessage);
 
-    setIsLoading(true); // Set loading to true when sending message
+    setIsLoading(true);
     try {
-      const aiResponse = await generateResponse(inputMessage);
+      const aiResponse = await vectorizeAndProcessKnowledgeBase(inputMessage);
       const aiMessage: Message = { 
         role: 'bot', 
         content: aiResponse, 
@@ -360,10 +431,10 @@ export default function Home() {
         payload: { role: 'error', content: 'Failed to get AI response. Please try again.', chat_id: activeChat }
       });
     } finally {
-      setIsLoading(false); // Set loading back to false when response is received
+      setIsLoading(false);
       triggerScroll();
     }
-  }, [inputMessage, activeChat, generateResponse, dispatchMessages, saveMessageToSupabase, triggerScroll]);
+  };
 
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     console.log('Setting active chat:', chatId);
