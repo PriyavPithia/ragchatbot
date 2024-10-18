@@ -23,7 +23,7 @@ type Message = {
   content: string;
   id?: string;
   chat_id?: string;
-  isPending?: boolean;
+  isLoading?: boolean;
 };
 
 // Define ChatSession type or use any if structure is unknown
@@ -34,7 +34,8 @@ type MessagesState = Message[];
 type MessagesAction = 
   | { type: 'ADD_MESSAGE'; payload: Message }
   | { type: 'SET_MESSAGES'; payload: Message[] }
-  | { type: 'CLEAR_MESSAGES' };
+  | { type: 'CLEAR_MESSAGES' }
+  | { type: 'UPDATE_LAST_MESSAGE'; payload: Message };
 
 const messagesReducer = (state: MessagesState, action: MessagesAction): MessagesState => {
   switch (action.type) {
@@ -44,6 +45,10 @@ const messagesReducer = (state: MessagesState, action: MessagesAction): Messages
       return action.payload;
     case 'CLEAR_MESSAGES':
       return [];
+    case 'UPDATE_LAST_MESSAGE':
+      return state.map((message, index) => 
+        index === state.length - 1 ? { ...message, ...action.payload, isLoading: false } : message
+      );
     default:
       return state;
   }
@@ -52,11 +57,19 @@ const messagesReducer = (state: MessagesState, action: MessagesAction): Messages
 const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToClipboard, copiedIndex }: {
   message: Message;
   isLast: boolean;
-  lastMessageRef?: React.RefObject<HTMLDivElement>;  // Make this optional
+  lastMessageRef?: React.RefObject<HTMLDivElement>;
   index: number;
   copyToClipboard: (content: string, index: number) => void;
   copiedIndex: number | null;
 }) => {
+  if (message.isLoading) {
+    return (
+      <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto relative">
+        <LoadingDots />
+      </div>
+    );
+  }
+
   return (
     <div className={`mb-4 ${message.role === 'user' ? 'ml-auto text-right' : 'mr-auto'}`}>
       <div className={`rounded-lg ${
@@ -91,7 +104,6 @@ const MemoizedMessage = memo(({ message, isLast, lastMessageRef, index, copyToCl
           </div>
         )}
       </div>
-      {isLast && message.role === 'bot' && <div className="h-10" />} {/* Keep this h-10 div */}
       {isLast && <div ref={lastMessageRef} style={{ height: '1px' }} />}
     </div>
   );
@@ -122,6 +134,12 @@ const MemoizedChatSession = memo(({ chat, isActive, onSelect, onDelete, onRename
 
 MemoizedChatSession.displayName = 'MemoizedChatSession';
 
+const AIResponseLoading = () => (
+  <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto relative">
+    <LoadingDots />
+  </div>
+);
+
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
   const router = useRouter()
@@ -150,6 +168,7 @@ export default function Home() {
   const [globalKnowledgeBases, setGlobalKnowledgeBases] = useState<{ id: string; name: string; content: string }[]>([]);
   const [globalActiveKnowledgeBase, setGlobalActiveKnowledgeBase] = useState<string | null>(null);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Use useMemo to combine local and global messages
   const allMessages = useMemo(() => {
@@ -284,63 +303,9 @@ export default function Home() {
       console.log('Message saved to Supabase:', data);
     } catch (error) {
       console.error('Error saving message to Supabase:', error);
+      throw error;
     }
   };
-
-  const handleSendMessage = useCallback(async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!inputMessage.trim() || !activeChat) return;
-
-    console.log('Sending message:', inputMessage);
-
-    const userMessage: Message = {
-      role: 'user',
-      content: inputMessage,
-      chat_id: activeChat
-    };
-
-    setLocalMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    triggerScroll();
-
-    // Save user message to Supabase
-    await saveMessageToSupabase(userMessage);
-
-    // Start AI response generation
-    generateAIResponse(inputMessage, activeChat);
-  }, [inputMessage, activeChat, triggerScroll]);
-
-  const generateAIResponse = useCallback(async (message: string, chatId: string) => {
-    console.log('Generating AI response for:', message);
-    setIsLoading(true);
-
-    try {
-      const aiResponse = await generateResponse(message);
-      console.log('AI response received:', aiResponse);
-      
-      const aiMessage: Message = { role: 'bot', content: aiResponse, chat_id: chatId };
-      
-      // Add both user and AI messages to confirmed messages
-      dispatchMessages({ type: 'ADD_MESSAGE', payload: { role: 'user', content: message, chat_id: chatId } });
-      dispatchMessages({ type: 'ADD_MESSAGE', payload: aiMessage });
-      
-      // Save AI message to Supabase
-      await saveMessageToSupabase(aiMessage);
-      
-      // Clear local messages
-      setLocalMessages([]);
-      
-      triggerScroll();
-    } catch (error) {
-      console.error('Error generating response:', error);
-      const errorMessage: Message = { role: 'error', content: 'Failed to get AI response. Please try again.', chat_id: chatId };
-      dispatchMessages({ type: 'ADD_MESSAGE', payload: errorMessage });
-      await saveMessageToSupabase(errorMessage);
-    } finally {
-      setIsLoading(false);
-      triggerScroll();
-    }
-  }, [generateResponse, dispatchMessages, triggerScroll]);
 
   const fetchMessages = useCallback(async (chatId: string) => {
     setIsMessagesLoading(true);
@@ -361,9 +326,49 @@ export default function Home() {
     }
   }, [supabase, dispatchMessages]);
 
+  const handleSendMessage = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!inputMessage.trim() || !activeChat) return;
+
+    const userMessage: Message = {
+      role: 'user',
+      content: inputMessage,
+      chat_id: activeChat
+    };
+
+    dispatchMessages({ type: 'ADD_MESSAGE', payload: userMessage });
+    setInputMessage('');
+    triggerScroll();
+
+    // Save user message to Supabase
+    await saveMessageToSupabase(userMessage);
+
+    setIsLoading(true); // Set loading to true when sending message
+    try {
+      const aiResponse = await generateResponse(inputMessage);
+      const aiMessage: Message = { 
+        role: 'bot', 
+        content: aiResponse, 
+        chat_id: activeChat
+      };
+      dispatchMessages({ type: 'ADD_MESSAGE', payload: aiMessage });
+      await saveMessageToSupabase(aiMessage);
+    } catch (error) {
+      console.error('Error generating response:', error);
+      dispatchMessages({ 
+        type: 'ADD_MESSAGE', 
+        payload: { role: 'error', content: 'Failed to get AI response. Please try again.', chat_id: activeChat }
+      });
+    } finally {
+      setIsLoading(false); // Set loading back to false when response is received
+      triggerScroll();
+    }
+  }, [inputMessage, activeChat, generateResponse, dispatchMessages, saveMessageToSupabase, triggerScroll]);
+
   const handleSetActiveChat = useCallback(async (chatId: string) => {
     console.log('Setting active chat:', chatId);
     setActiveChat(chatId);
+    setIsInitialLoad(true);
     setLoadingChats(prev => new Set(prev).add(chatId));
     dispatchMessages({ type: 'CLEAR_MESSAGES' });
 
@@ -383,6 +388,7 @@ export default function Home() {
         newSet.delete(chatId);
         return newSet;
       });
+      setIsInitialLoad(false);
       console.log('Finished setting active chat');
     }
   }, [fetchMessages, dispatchMessages, triggerScroll]);
@@ -472,25 +478,18 @@ export default function Home() {
             <div className="flex flex-col h-full">
               <div 
                 className={`flex-grow overflow-y-auto py-4 ${
-                  isMobile ? 'px-2 pt-[100px] pb-[50px]' : 'px-4'
-                } scrollable-area transition-opacity duration-300 ease-in-out ${
-                  isMessagesLoading ? 'opacity-50' : 'opacity-100'
-                }`} 
+                  isMobile ? 'px-2 pt-[120px]' : 'px-4'
+                } scrollable-area pb-[25px]`} // Added pb-24 here
                 ref={scrollAreaRef}
               >
-                {isMessagesLoading ? (
+                {isInitialLoad ? (
                   <div className="flex justify-center items-center h-full">
                     <LoadingDots />
                   </div>
                 ) : (
-                  memoizedMessages
-                )}
-                {isLoading && (
                   <>
-                    <div className="py-2 px-4 bg-secondary text-secondary-foreground rounded-lg max-w-[80%] mr-auto relative">
-                      <LoadingDots />
-                    </div>
-                    <div className="h-16"></div>
+                    {memoizedMessages}
+                    {isLoading && <AIResponseLoading />}
                   </>
                 )}
               </div>
@@ -510,12 +509,13 @@ export default function Home() {
       default:
         return null;
     }
-  }, [activeTab, chats, activeChat, memoizedMessages, isLoading, isMobile, handleNewChat, scrollAreaRef, isMessagesLoading]);
+  }, [activeTab, chats, activeChat, memoizedMessages, isLoading, isMobile, handleNewChat, scrollAreaRef, isInitialLoad]);
 
   console.log('Rendering messages:', { localMessages, globalMessages: messages, allMessages });
 
   const fetchChats = useCallback(async () => {
     if (user) {
+      setIsInitialLoad(true);
       try {
         console.log('Fetching chats for user:', user.id)
         const { data, error } = await supabase
@@ -530,14 +530,17 @@ export default function Home() {
         setChats(data || []);
         if (data && data.length > 0) {
           setActiveChat(data[0].id);
+          await fetchMessages(data[0].id);
         } else {
           setActiveChat(null);
         }
       } catch (error) {
         console.error('Error fetching chats:', error);
+      } finally {
+        setIsInitialLoad(false);
       }
     }
-  }, [user, supabase]);
+  }, [user, supabase, fetchMessages]);
 
   useEffect(() => {
     console.log('Home component effect', { authLoading, user })
@@ -578,12 +581,12 @@ export default function Home() {
   }, [setApiKey]);
 
   useEffect(() => {
-    if (activeChat) {
+    if (activeChat && isInitialLoad) {
       fetchMessages(activeChat);
       // Scroll to bottom after loading messages
       setTimeout(() => scrollToBottom(), 100);
     }
-  }, [activeChat, fetchMessages, scrollToBottom]);
+  }, [activeChat, fetchMessages, scrollToBottom, isInitialLoad]);
 
   const saveMessage = async (message: Message) => {
     try {
@@ -706,6 +709,19 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    if (activeChat && isInitialLoad) {
+      handleSetActiveChat(activeChat);
+    }
+  }, [activeChat, isInitialLoad, handleSetActiveChat]);
+
+  // Add this new effect
+  useEffect(() => {
+    if (user && chats.length > 0 && !activeChat) {
+      setActiveChat(chats[0].id);
+    }
+  }, [user, chats, activeChat]);
+
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><LoadingDots /></div>
   }
@@ -717,7 +733,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 fixed top-0 left-0 right-0">
+      <header className="flex items-center justify-between px-4 h-16 border-b bg-background z-30 sticky top-0 left-0 right-0">
         <h1 className="text-2xl font-bold">AI Chatbot</h1>
         <div className="flex items-center">
           <Button
@@ -740,7 +756,7 @@ export default function Home() {
           />
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden pt-16">
+      <div className="flex flex-1 overflow-hidden">
         {!isMobile && (
           <div className="w-64 border-r flex flex-col">
             <Sidebar
@@ -757,11 +773,11 @@ export default function Home() {
           </div>
         )}
         <div className="flex-1 overflow-hidden flex flex-col relative">
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto pb-[60px]"> {/* Changed pb-24 to pb-[60px] */}
             {renderTabContent}
           </main>
           {activeTab === 'chat' && activeChat && (
-            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2 left-0' : 'px-4 left-64'} fixed bottom-0 right-0 z-20`}>
+            <div className={`border-t bg-white py-2 ${isMobile ? 'px-2' : 'px-4'} absolute bottom-0 left-0 right-0 z-20`}>
               <form onSubmit={handleSendMessage} className="flex space-x-2 max-w-3xl mx-auto">
                 <Input
                   name="message"
