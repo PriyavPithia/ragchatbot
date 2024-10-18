@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu, LogOut } from 'lucide-react';
@@ -30,8 +30,20 @@ export function MobileSidebar({
   user,
   onLogout,
 }: MobileSidebarProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setOpen(false);
+  };
+
+  const handleChatSelect = (chatId: string) => {
+    setActiveChat(chatId);
+    setOpen(false);
+  };
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="md:hidden">
           <Menu className="h-[1.2rem] w-[1.2rem]" />
@@ -42,12 +54,12 @@ export function MobileSidebar({
           <div className="flex-grow overflow-y-auto">
             <Sidebar
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={handleTabChange}
               activeChat={activeChat}
-              setActiveChat={setActiveChat}
+              setActiveChat={handleChatSelect}
               chats={chats}
               onDeleteChat={onDeleteChat}
-              onNewChat={onNewChat}
+              onNewChat={() => { onNewChat(); setOpen(false); }}
               onRenameChat={onRenameChat}
               message=""
               user={user}
@@ -57,7 +69,7 @@ export function MobileSidebar({
             <Button
               variant="ghost"
               className="w-full justify-start"
-              onClick={onLogout}
+              onClick={() => { onLogout(); setOpen(false); }}
             >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
