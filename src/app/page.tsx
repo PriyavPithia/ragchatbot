@@ -753,7 +753,8 @@ export default function Home() {
             onDeleteChat={handleDeleteChat}
             onNewChat={handleNewChat}
             onRenameChat={handleRenameChat}
-            user={user} // Add this line
+            user={user}
+            onLogout={handleLogout} // Add this line
           />
         </div>
       </header>
