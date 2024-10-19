@@ -213,7 +213,7 @@ export default function Home() {
 
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
-      chunkOverlap: 100,
+      chunkOverlap: 200, // Increased overlap for better context
     });
 
     const chunks = await textSplitter.createDocuments([activeKnowledgeBaseContent]);
@@ -224,26 +224,33 @@ export default function Home() {
       modelName: EMBEDDING_MODEL_NAME,
     });
 
+    // Batch process embeddings for efficiency
     const chunkEmbeddings = await embeddings.embedDocuments(chunks.map(chunk => chunk.pageContent));
     const promptEmbedding = await embeddings.embedQuery(prompt);
 
+    // Use dot product for faster similarity calculation
     const similarities = chunkEmbeddings.map(embedding => 
-      cosineSimilarity(embedding, promptEmbedding)
+      embedding.reduce((sum, val, i) => sum + val * promptEmbedding[i], 0)
     );
 
-    const mostSimilarIndex = similarities.indexOf(Math.max(...similarities));
-    const mostSimilarChunk = chunks[mostSimilarIndex].pageContent;
-    const highestSimilarity = similarities[mostSimilarIndex];
+    // Get top 3 most similar chunks
+    const topIndices = similarities
+      .map((score, index) => ({ score, index }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(item => item.index);
 
-    console.log("Most similar chunk:", mostSimilarChunk);
-    console.log("Highest similarity score:", highestSimilarity);
+    const relevantChunks = topIndices.map(index => chunks[index].pageContent);
 
-    const similarityThreshold = 0.2;
+    console.log("Top 3 most similar chunks:", relevantChunks);
 
-    const fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question in detail. Base your answer on the provided context. If the context is not relevant (similarity score below ${similarityThreshold}), clearly state that the context doesn't contain relevant information before answering.
+    const similarityThreshold = 0.6; // Adjusted threshold
+    const highestSimilarity = Math.max(...similarities);
 
-Context (similarity score: ${highestSimilarity}):
-${mostSimilarChunk}
+    const fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question. If the context is not relevant (similarity score below ${similarityThreshold}), clearly state that the context doesn't contain relevant information before answering based on your general knowledge.
+
+Context (highest similarity score: ${highestSimilarity}):
+${relevantChunks.join('\n\n')}
 
 User's question: ${prompt}
 
