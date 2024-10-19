@@ -212,8 +212,8 @@ export default function Home() {
     console.log("Active Knowledge Base Content (first 500 chars):", activeKnowledgeBaseContent.substring(0, 500));
 
     const textSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 500,
-      chunkOverlap: 50,
+      chunkSize: 1000,
+      chunkOverlap: 100,
     });
 
     const chunks = await textSplitter.createDocuments([activeKnowledgeBaseContent]);
