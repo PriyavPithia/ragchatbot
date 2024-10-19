@@ -240,11 +240,9 @@ export default function Home() {
 
     const similarityThreshold = 0.2;
 
-    let fullPrompt: string;
+    const fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question in detail. Base your answer on the provided context. If the context is not relevant (similarity score below ${similarityThreshold}), clearly state that the context doesn't contain relevant information before answering.
 
-    fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question. Base your answer on the information provided in the context. If the context doesn't contain relevant information to answer the question, if context is not enough be creative with your answer or simply state that you don't have enough information to provide a complete answer.
-
-Context:
+Context (similarity score: ${highestSimilarity}):
 ${mostSimilarChunk}
 
 User's question: ${prompt}
