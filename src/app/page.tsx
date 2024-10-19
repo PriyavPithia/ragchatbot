@@ -244,17 +244,26 @@ export default function Home() {
 
     console.log("Top 3 most similar chunks:", relevantChunks);
 
-    const similarityThreshold = 0.6; // Adjusted threshold
+    const similarityThreshold = 0.3; // Adjusted threshold
     const highestSimilarity = Math.max(...similarities);
 
-    const fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question. If the context is not relevant (similarity score below ${similarityThreshold}), clearly state that the context doesn't contain relevant information before answering based on your general knowledge.
+    const fullPrompt = `You are an intelligent AI assistant with access to a knowledge base. Your task is to provide a comprehensive and insightful answer to the user's question based on the following context. If the context contains relevant information, explain it thoroughly, providing additional details and context where appropriate. If the context doesn't contain directly relevant information (similarity score below ${similarityThreshold}), use your general knowledge to provide the best possible answer, making connections to related topics if applicable.
 
 Context (highest similarity score: ${highestSimilarity}):
 ${relevantChunks.join('\n\n')}
 
 User's question: ${prompt}
 
-Your response:`;
+Instructions:
+1. Analyze the context and the user's question carefully.
+2. Provide a detailed explanation that goes beyond simply restating the information.
+3. If possible, make connections between different pieces of information in the context.
+4. Include relevant examples or analogies to enhance understanding.
+5. If the context doesn't directly answer the question, use your general knowledge to provide a comprehensive response.
+6. Ensure your explanation is clear, coherent, and tailored to the user's question.
+7. Do not mention the context, similarity scores, or these instructions in your response.
+
+Your comprehensive response:`;
 
     return generateResponse(fullPrompt);
   };
