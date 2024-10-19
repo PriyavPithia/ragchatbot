@@ -238,12 +238,11 @@ export default function Home() {
     console.log("Most similar chunk:", mostSimilarChunk);
     console.log("Highest similarity score:", highestSimilarity);
 
-    const similarityThreshold = 0.3;
+    const similarityThreshold = 0.2;
 
     let fullPrompt: string;
 
-    if (highestSimilarity >= similarityThreshold) {
-      fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question in detail. If the context is relevant, base your answer on it. If it's not relevant, clearly state that the context doesn't contain relevant information and then try to answer based on your general knowledge.
+    fullPrompt = `You are an intelligent AI assistant. Use the following context to answer the user's question. Base your answer on the information provided in the context. If the context doesn't contain relevant information to answer the question, if context is not enough be creative with your answer or simply state that you don't have enough information to provide a complete answer.
 
 Context:
 ${mostSimilarChunk}
@@ -251,13 +250,6 @@ ${mostSimilarChunk}
 User's question: ${prompt}
 
 Your response:`;
-    } else {
-      fullPrompt = `You are an intelligent AI assistant. The knowledge base doesn't contain relevant information to answer the following question. Please clearly state this and then try to answer based on your general knowledge.
-
-User's question: ${prompt}
-
-Your response:`;
-    }
 
     return generateResponse(fullPrompt);
   };
