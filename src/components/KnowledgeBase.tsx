@@ -7,6 +7,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from './AuthProvider';
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB in bytes
+
 export function KnowledgeBase() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<{ id: string; name: string; content: string }[]>([]);
@@ -51,48 +53,49 @@ export function KnowledgeBase() {
     }
   }, [user]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) {
-      setMessage('No file selected or user not authenticated');
-      return;
-    }
-
+  const handleFileUpload = async (file: File) => {
     setIsUploading(true);
     setMessage('Uploading file...');
 
-    try {
-      if (file.size > 10 * 1024 * 1024) {
-        throw new Error('File size exceeds 10MB limit');
-      }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', user?.id || '');
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('userId', user.id);
+    try {
+      console.log('Preparing to send file upload request');
+      console.log('File name:', file.name);
+      console.log('File size:', file.size);
+      console.log('User ID:', user?.id);
 
       const response = await fetch('/api/upload-knowledge-base', {
         method: 'POST',
         body: formData,
       });
 
+      console.log('Response received:', response.status, response.statusText);
+      const contentType = response.headers.get("content-type");
+      console.log('Response content type:', contentType);
+
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Error parsing JSON:', parseError);
+        throw new Error('Invalid JSON response from server');
+      }
+
       if (!response.ok) {
-        throw new Error('Failed to upload file');
+        throw new Error(result.error || 'Upload failed');
       }
 
-      const result = await response.json();
-
-      setMessage(`File ${result.isUpdate ? 'updated' : 'uploaded'} successfully`);
-      
-      // If it's a new knowledge base or an update, set it as active and load its content
-      if (result.newKnowledgeBaseId || result.updatedKnowledgeBaseId) {
-        const newActiveId = result.newKnowledgeBaseId || result.updatedKnowledgeBaseId;
-        await setAsActiveKnowledgeBase(newActiveId);
-      }
-
+      setMessage('File uploaded successfully');
       await fetchUploadedFiles();
-    } catch (error: any) {
-      console.error('Error processing file:', error);
-      setMessage(`Error uploading file: ${error.message}`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      setMessage(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
@@ -157,8 +160,21 @@ export function KnowledgeBase() {
     }
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        setMessage('File size exceeds the 100 MB limit.');
+      } else if (file.type !== 'text/plain' && file.type !== 'application/pdf') {
+        setMessage('Only .txt and .pdf files are allowed.');
+      } else {
+        handleFileUpload(file);
+      }
+    }
+  };
+
   return (
-    <div className="w-full p-4 md:p-4 pt-[120px] mb-[110px]  md:pt-4"> {/* Adjusted padding for mobile and desktop */}
+    <div className="w-full p-4 md:p-4 pt-[120px] mb-[110px]  md:pt-4">
       <h2 className="text-2xl font-bold mb-4">Knowledge Base</h2>
       <p className="text-muted-foreground mb-6">Upload and manage your knowledge base files</p>
       
@@ -174,11 +190,18 @@ export function KnowledgeBase() {
                   <p className="mb-2 text-sm text-muted-foreground">
                     <span className="font-semibold">Click to upload</span> or drag and drop
                   </p>
-                  <p className="text-xs text-muted-foreground">TXT or PDF (MAX. 10MB)</p>
+                  <p className="text-xs text-muted-foreground">TXT or PDF (MAX. 100MB)</p>
                 </>
               )}
             </div>
-            <Input id="dropzone-file" type="file" className="hidden focus-visible:ring-transparent" onChange={handleFileUpload} disabled={isUploading} accept=".txt,.pdf" />
+            <Input 
+              id="dropzone-file" 
+              type="file" 
+              className="hidden focus-visible:ring-transparent" 
+              onChange={handleFileSelect} 
+              disabled={isUploading} 
+              accept=".txt,.pdf" 
+            />
           </Label>
         </div>
         

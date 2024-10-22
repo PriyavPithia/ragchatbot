@@ -20,9 +20,14 @@ import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { Document } from "langchain/document";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { OpenAI } from "@langchain/openai";
+import { OpenAIEmbeddings } from "@langchain/openai";
+
+
+
 
 const MODEL_NAME = "gemini-1.0-pro";
-const EMBEDDING_MODEL_NAME = "embedding-001";
+const EMBEDDING_MODEL_NAME = "models/embedding-001";
 
 type Message = {
   role: string;
@@ -146,6 +151,8 @@ const AIResponseLoading = () => (
   </div>
 );
 
+const TEMPERATURE = 0.5; // You can adjust this value as needed
+
 export default function Home() {
   const { user, isLoading: authLoading, apiKey, setApiKey } = useAuth()
   const router = useRouter()
@@ -175,6 +182,7 @@ export default function Home() {
   const [globalActiveKnowledgeBase, setGlobalActiveKnowledgeBase] = useState<string | null>(null);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'openai'>('gemini');
 
   // Use useMemo to combine local and global messages
   const allMessages = useMemo(() => {
@@ -213,41 +221,53 @@ export default function Home() {
 
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
-      chunkOverlap: 200, // Increased overlap for better context
+      chunkOverlap: 200,
     });
 
     const chunks = await textSplitter.createDocuments([activeKnowledgeBaseContent]);
     console.log(`Number of chunks: ${chunks.length}`);
 
-    const embeddings = new GoogleGenerativeAIEmbeddings({
-      apiKey: apiKey,
-      modelName: EMBEDDING_MODEL_NAME,
-    });
+    let embeddings;
 
-    // Batch process embeddings for efficiency
-    const chunkEmbeddings = await embeddings.embedDocuments(chunks.map(chunk => chunk.pageContent));
-    const promptEmbedding = await embeddings.embedQuery(prompt);
+    try {
+      if (selectedProvider === 'openai') {
+        console.log("Using OpenAI embeddings");
+        embeddings = new OpenAIEmbeddings({ 
+          openAIApiKey: apiKey,
+          modelName: "text-embedding-3-small"
+        });
+      } else {
+        console.log("Using Gemini embeddings");
+        embeddings = new GoogleGenerativeAIEmbeddings({
+          apiKey: apiKey,
+          modelName: EMBEDDING_MODEL_NAME,
+        });
+      }
 
-    // Use dot product for faster similarity calculation
-    const similarities = chunkEmbeddings.map(embedding => 
-      embedding.reduce((sum, val, i) => sum + val * promptEmbedding[i], 0)
-    );
+      // Batch process embeddings for efficiency
+      const chunkEmbeddings = await embeddings.embedDocuments(chunks.map(chunk => chunk.pageContent));
+      const promptEmbedding = await embeddings.embedQuery(prompt);
 
-    // Get top 3 most similar chunks
-    const topIndices = similarities
-      .map((score, index) => ({ score, index }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map(item => item.index);
+      // Use dot product for faster similarity calculation
+      const similarities = chunkEmbeddings.map(embedding => 
+        embedding.reduce((sum, val, i) => sum + val * promptEmbedding[i], 0)
+      );
 
-    const relevantChunks = topIndices.map(index => chunks[index].pageContent);
+      // Get top 5 most similar chunks
+      const topIndices = similarities
+        .map((score, index) => ({ score, index }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map(item => item.index);
 
-    console.log("Top 3 most similar chunks:", relevantChunks);
+      const relevantChunks = topIndices.map(index => chunks[index].pageContent);
 
-    const similarityThreshold = 0.3; // Adjusted threshold
-    const highestSimilarity = Math.max(...similarities);
+      console.log("Top 5 most similar chunks:", relevantChunks);
 
-    const fullPrompt = `You are an intelligent AI assistant with access to a knowledge base. Your task is to provide a comprehensive and insightful answer to the user's question based on the following context. If the context contains relevant information, explain it thoroughly, providing additional details and context where appropriate. If the context doesn't contain directly relevant information (similarity score below ${similarityThreshold}), use your general knowledge to provide the best possible answer, making connections to related topics if applicable.
+      const similarityThreshold = 0.3;
+      const highestSimilarity = Math.max(...similarities);
+
+      const fullPrompt = `You are an intelligent AI assistant with access to a knowledge base. Your task is to provide a comprehensive and insightful answer to the user's question based on the following context. If the context contains relevant information, explain it thoroughly, providing additional details and context where appropriate. If the context doesn't contain directly relevant information (similarity score below ${similarityThreshold}), use your general knowledge to provide the best possible answer, making connections to related topics if applicable.
 
 Context (highest similarity score: ${highestSimilarity}):
 ${relevantChunks.join('\n\n')}
@@ -265,7 +285,20 @@ Instructions:
 
 Your comprehensive response:`;
 
-    return generateResponse(fullPrompt);
+      return generateResponse(fullPrompt);
+    } catch (error: any) {
+      console.error('Error during embedding process:', error);
+      if (error.message.includes('429') || error.message.includes('exceeded your current quota')) {
+        if (selectedProvider === 'openai') {
+          console.log('OpenAI quota exceeded, falling back to Gemini');
+          setSelectedProvider('gemini');
+          return vectorizeAndProcessKnowledgeBase(prompt); // Retry with Gemini
+        } else {
+          throw new Error('Both OpenAI and Gemini quotas exceeded. Please try again later.');
+        }
+      }
+      throw error;
+    }
   };
 
   const generateResponse = useCallback(async (prompt: string): Promise<string> => {
@@ -273,19 +306,67 @@ Your comprehensive response:`;
       throw new Error("API key is not set");
     }
 
-    const model = new ChatGoogleGenerativeAI({ apiKey, modelName: MODEL_NAME });
+    const getCompleteResponse = async (initialResponse: string): Promise<string> => {
+      if (initialResponse.trim().endsWith('.') || initialResponse.trim().endsWith('!') || initialResponse.trim().endsWith('?')) {
+        return initialResponse;
+      }
+      
+      const completionPrompt = `${initialResponse}\n\nPlease complete the above response:`;
+      const completion = await generateResponse(completionPrompt);
+      return `${initialResponse} ${completion}`;
+    };
 
     try {
-      const result = await model.invoke([
-        ["human", prompt],
-      ]);
-      console.log("AI Response:", result.content);
-      return typeof result.content === 'string' ? result.content : JSON.stringify(result.content);
-    } catch (error) {
+      let result: string;
+      if (selectedProvider === 'gemini') {
+        const model = new ChatGoogleGenerativeAI({ 
+          apiKey, 
+          modelName: MODEL_NAME,
+          temperature: TEMPERATURE
+        });
+        const response = await model.invoke([
+          ["human", prompt],
+        ]);
+        // Handle the MessageContent type and convert it to a string
+        if (typeof response.content === 'string') {
+          result = response.content;
+        } else if (Array.isArray(response.content)) {
+          // If it's an array, join the text parts
+          result = response.content
+            .filter((part): part is { text: string } => 
+              typeof part === 'object' && 'text' in part && typeof part.text === 'string')
+            .map(part => part.text)
+            .join(' ');
+        } else {
+          throw new Error('Unexpected response format from Gemini');
+        }
+      } else {
+        const model = new OpenAI({ 
+          openAIApiKey: apiKey,
+          temperature: TEMPERATURE
+        });
+        result = await model.call(prompt);
+      }
+      
+      // Ensure the response is complete
+      result = await getCompleteResponse(result);
+      
+      console.log("AI Response:", result);
+      return result;
+    } catch (error: any) {
       console.error('Error generating response:', error);
-      throw new Error('Failed to fetch response from Gemini API');
+      if (error.message.includes('429') || error.message.includes('exceeded your current quota')) {
+        if (selectedProvider === 'openai') {
+          console.log('OpenAI quota exceeded, falling back to Gemini');
+          setSelectedProvider('gemini');
+          return generateResponse(prompt); // Retry with Gemini
+        } else {
+          throw new Error('Both OpenAI and Gemini quotas exceeded. Please try again later.');
+        }
+      }
+      throw new Error(`Failed to fetch response from API. Error details: ${error.message}`);
     }
-  }, [apiKey]);
+  }, [apiKey, selectedProvider]);
 
   const handleNewChat = useCallback(async () => {
     try {
@@ -430,11 +511,15 @@ Your comprehensive response:`;
       };
       dispatchMessages({ type: 'ADD_MESSAGE', payload: aiMessage });
       await saveMessageToSupabase(aiMessage);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error generating response:', error);
+      let errorMessage = 'Failed to get AI response. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       dispatchMessages({ 
         type: 'ADD_MESSAGE', 
-        payload: { role: 'error', content: 'Failed to get AI response. Please try again.', chat_id: activeChat }
+        payload: { role: 'error', content: errorMessage, chat_id: activeChat }
       });
     } finally {
       setIsLoading(false);
@@ -536,6 +621,10 @@ Your comprehensive response:`;
     ));
   }, [messages, activeChat, copyToClipboard, copiedIndex, messagesEndRef]);
 
+  const handleProviderChange = useCallback((provider: 'gemini' | 'openai') => {
+    setSelectedProvider(provider);
+  }, []);
+
   const renderTabContent = useMemo(() => {
     switch (activeTab) {
       case 'chat':
@@ -582,11 +671,11 @@ Your comprehensive response:`;
       case 'knowledgebase':
         return <KnowledgeBase />;
       case 'apikey':
-        return <ApiKey />;
+        return <ApiKey onProviderChange={handleProviderChange} />;
       default:
         return null;
     }
-  }, [activeTab, chats, activeChat, memoizedMessages, isLoading, isMobile, handleNewChat, scrollAreaRef, isInitialLoad]);
+  }, [activeTab, chats, activeChat, memoizedMessages, isLoading, isMobile, handleNewChat, scrollAreaRef, isInitialLoad, handleProviderChange]);
 
   console.log('Rendering messages:', { localMessages, globalMessages: messages, allMessages });
 
@@ -750,15 +839,18 @@ Your comprehensive response:`;
     try {
       const { data, error } = await supabase
         .from('api_keys')
-        .select('key')
+        .select('gemini_key, openai_key, selected_provider')
         .eq('user_id', userId)
         .single();
 
       if (error) throw error;
       if (data) {
-        setGlobalApiKey(data.key);
-        setApiKey(data.key);
-        localStorage.setItem('geminiApiKey', data.key);
+        setSelectedProvider(data.selected_provider as 'gemini' | 'openai');
+        const provider = data.selected_provider as 'gemini' | 'openai';
+        const key = provider === 'gemini' ? data.gemini_key : data.openai_key;
+        setGlobalApiKey(key);
+        setApiKey(key);
+        localStorage.setItem(`${provider}ApiKey`, key);
       }
     } catch (error) {
       console.error('Error fetching API key:', error);

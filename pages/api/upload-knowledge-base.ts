@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
-import { Fields, Files, IncomingForm } from 'formidable';
-import fs from 'fs/promises';
-import pdf from 'pdf-parse';
+import formidable from 'formidable';
+import fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
+import pdfParse from 'pdf-parse';
 
 export const config = {
   api: {
@@ -10,82 +10,100 @@ export const config = {
   },
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+let supabase: any;
+
+try {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase URL or Key is missing');
   }
 
-  const supabase = createPagesServerClient({ req, res });
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('Supabase client initialized successfully');
+} catch (error) {
+  console.error('Error initializing Supabase client:', error);
+}
 
-  const form = new IncomingForm();
+async function extractTextFromFile(file: formidable.File): Promise<string> {
+  const buffer = await fs.promises.readFile(file.filepath);
+  
+  if (file.mimetype === 'application/pdf') {
+    const pdfData = await pdfParse(buffer);
+    return pdfData.text;
+  } else {
+    // Assume it's a text file
+    return buffer.toString('utf-8');
+  }
+}
 
-  try {
-    const [fields, files] = await new Promise<[Fields, Files]>((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
-      });
-    });
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Upload handler started');
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!supabase) {
+    console.error('Supabase client not initialized. Check your environment variables.');
+    return res.status(500).json({ error: 'Supabase client not initialized', details: 'Check server logs for more information' });
+  }
+
+  console.log('Parsing form data');
+  const form = formidable({
+    maxFileSize: 100 * 1024 * 1024, // 100 MB in bytes
+    keepExtensions: true,
+  });
+
+  form.parse(req, async (err, fields, files) => {
+    console.log('Form parse started');
+    if (err) {
+      console.error('Error parsing form:', err);
+      return res.status(500).json({ error: 'Error parsing form data', details: err.message });
+    }
+
+    console.log('Form parsed successfully');
+    console.log('Fields:', fields);
+    console.log('Files:', files);
 
     const file = Array.isArray(files.file) ? files.file[0] : files.file;
-    const userId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
-
-    if (!file || !userId) {
-      return res.status(400).json({ error: 'Missing file or userId' });
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    let fileContent: string;
+    try {
+      console.log('Extracting file content');
+      const content = await extractTextFromFile(file);
+      console.log('File content extracted successfully');
+      
+      const userId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
 
-    if (file.mimetype === 'application/pdf') {
-      const dataBuffer = await fs.readFile(file.filepath);
-      const pdfData = await pdf(dataBuffer);
-      fileContent = pdfData.text;
-    } else {
-      fileContent = await fs.readFile(file.filepath, 'utf8');
-    }
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
 
-    const { data: existingFile } = await supabase
-      .from('knowledgebases')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('name', file.originalFilename)
-      .single();
-
-    let result;
-    let newKnowledgeBaseId: string | null = null;
-
-    if (existingFile) {
-      result = await supabase
-        .from('knowledgebases')
-        .update({ content: fileContent })
-        .eq('id', existingFile.id)
-        .select();
-    } else {
-      result = await supabase
+      console.log('Inserting into Supabase');
+      const { data, error } = await supabase
         .from('knowledgebases')
         .insert({
           user_id: userId,
-          name: file.originalFilename,
-          content: fileContent,
+          name: file.originalFilename || 'Unnamed File',
+          content: content,
         })
         .select();
-      
-      if (result.data && result.data.length > 0) {
-        newKnowledgeBaseId = result.data[0].id;
+
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
       }
-    }
 
-    if (result.error) {
-      throw result.error;
-    }
+      console.log('File uploaded successfully');
+      await fs.promises.unlink(file.filepath); // Delete the temporary file
 
-    res.status(200).json({ 
-      success: true, 
-      isUpdate: !!existingFile,
-      newKnowledgeBaseId: newKnowledgeBaseId 
-    });
-  } catch (error: any) {
-    console.error('Error processing file:', error);
-    res.status(500).json({ error: error.message });
-  }
+      res.status(200).json({ message: 'File uploaded successfully', data });
+    } catch (error: any) {
+      console.error('Error processing file:', error);
+      res.status(500).json({ error: 'Error processing file', details: error.message, stack: error.stack });
+    }
+  });
 }

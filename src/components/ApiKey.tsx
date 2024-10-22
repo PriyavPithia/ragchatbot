@@ -3,15 +3,19 @@
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabaseClient';
-import { useAuth } from './AuthProvider';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { useAuth } from '../components/AuthProvider';
 
-export function ApiKey() {
+const supabase = createClientComponentClient();
+
+export function ApiKey({ onProviderChange }: { onProviderChange: (provider: 'gemini' | 'openai') => void }) {
   const [apiKey, setLocalApiKey] = useState('');
   const [message, setMessage] = useState('');
   const { user, apiKey: contextApiKey, setApiKey } = useAuth();
   const [existingKeyId, setExistingKeyId] = useState<string | null>(null);
-  const [globalApiKey, setGlobalApiKey] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'openai'>('gemini');
 
   const fetchApiKey = async () => {
     if (!user) {
@@ -20,23 +24,21 @@ export function ApiKey() {
     }
 
     try {
-      console.log('Fetching API key for user:', user.id);
       const { data, error } = await supabase
         .from('api_keys')
-        .select('id, key')
+        .select('id, gemini_key, openai_key, selected_provider')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) throw error;
 
       if (data) {
-        setApiKey(data.key);
+        setSelectedProvider(data.selected_provider as 'gemini' | 'openai' || 'gemini');
+        setLocalApiKey(data[`${data.selected_provider}_key` as 'gemini_key' | 'openai_key'] || '');
         setExistingKeyId(data.id);
         setMessage('API Key loaded from database');
-        console.log('API Key fetched successfully');
       } else {
         setMessage('No API Key found');
-        console.log('No API Key found for user');
       }
     } catch (error: any) {
       console.error('Error fetching API key:', error);
@@ -46,11 +48,9 @@ export function ApiKey() {
 
   useEffect(() => {
     if (user) {
-      console.log('Current user ID:', user.id);
-      setLocalApiKey(contextApiKey || globalApiKey);
       fetchApiKey();
     }
-  }, [user, contextApiKey, globalApiKey]);
+  }, [user]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -60,31 +60,23 @@ export function ApiKey() {
     }
 
     try {
-      console.log('Current user:', JSON.stringify(user, null, 2));
-      console.log('Attempting to save API key for user:', user.id);
-
-      // Log the current RLS policies
-      const { data: policies, error: policiesError } = await supabase.rpc('get_policies', { table_name: 'api_keys' });
-      if (policiesError) {
-        console.error('Error getting RLS policies:', policiesError);
-      } else {
-        console.log('RLS policies for api_keys table:', policies);
-      }
-
       let result;
+      const keyData = {
+        [`${selectedProvider}_key`]: apiKey,
+        selected_provider: selectedProvider
+      };
+
       if (existingKeyId) {
-        console.log('Updating existing API key');
         result = await supabase
           .from('api_keys')
-          .update({ key: apiKey })
+          .update(keyData)
           .eq('id', existingKeyId)
           .eq('user_id', user.id)
           .select();
       } else {
-        console.log('Inserting new API key');
         result = await supabase
           .from('api_keys')
-          .insert({ user_id: user.id, key: apiKey })
+          .insert({ user_id: user.id, ...keyData })
           .select();
       }
 
@@ -92,25 +84,15 @@ export function ApiKey() {
       if (error) throw error;
 
       setMessage('API Key saved successfully');
-      console.log('API Key saved successfully', data);
       if (data && data[0]) {
         setExistingKeyId(data[0].id);
         setApiKey(apiKey);
-        setGlobalApiKey(apiKey);
-        localStorage.setItem('geminiApiKey', apiKey);
+        localStorage.setItem(`${selectedProvider}ApiKey`, apiKey);
+        onProviderChange(selectedProvider); // Update the provider in the parent component
       }
     } catch (error: any) {
       console.error('Error saving API key:', error);
       setMessage(`Error saving API Key: ${error.message}`);
-      console.log('Full error object:', JSON.stringify(error, null, 2));
-
-      // Log the current session
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        console.error('Error getting session:', sessionError);
-      } else {
-        console.log('Current session:', JSON.stringify(sessionData, null, 2));
-      }
     }
   };
 
@@ -118,9 +100,23 @@ export function ApiKey() {
     <div className="p-4 h-full md:p-4 pt-[120px] md:pt-4">
       <h2 className="text-lg font-semibold mb-4">API Key</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <RadioGroup
+          value={selectedProvider}
+          onValueChange={(value) => setSelectedProvider(value as 'gemini' | 'openai')}
+          className="flex space-x-4 mb-4"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="gemini" id="gemini" />
+            <Label htmlFor="gemini">Gemini</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="openai" id="openai" />
+            <Label htmlFor="openai">OpenAI</Label>
+          </div>
+        </RadioGroup>
         <Input
           type="password"
-          placeholder="Enter your Gemini API key"
+          placeholder={`Enter your ${selectedProvider === 'gemini' ? 'Gemini' : 'OpenAI'} API key`}
           value={apiKey}
           onChange={(e) => setLocalApiKey(e.target.value)}
           className="focus-visible:ring-transparent text-base md:text-sm"
